@@ -24,3 +24,5 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
+
+//home screen for the app. It provides a welcome message and a link to start a new SplitPay session. You can expand this screen with more features and navigation options as needed.

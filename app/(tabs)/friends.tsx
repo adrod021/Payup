@@ -30,3 +30,5 @@ export default function FriendsScreen() {
     </SafeAreaView>
   );
 }
+
+// This screen allows users to invite friends by entering their email or phone number. You can expand this screen with additional features, such as displaying a list of invited friends or managing friend requests.

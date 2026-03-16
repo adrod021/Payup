@@ -23,3 +23,5 @@ export default function BillingScreen() {
     </SafeAreaView>
   );
 }
+
+// This screen allows users to add and manage their debit/credit cards for paying their share of a bill. Nothing is implemented at the moment it's a placeholder
