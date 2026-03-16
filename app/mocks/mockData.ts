@@ -26,3 +26,5 @@ export const mockBillSession: BillSession = {
   ocrResult: mockOCRResult,
   total: 32.45,
 };
+
+//just a mock data file for testing purposes. You can expand this with more mock users, sessions, and OCR results as needed.

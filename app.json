@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mybillsplitter",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
@@ -20,8 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "navigationBar": {
-        "backgroundColor": "#000000",
-        "barStyle": "light-content"
+        "backgroundColor": "#FFFFFF",
+        "barStyle": "dark-content"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -37,9 +37,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#000000",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#FFFFFF"
           }
         }
       ]
