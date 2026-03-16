@@ -1,25 +1,24 @@
-import { Link } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function HomeScreen() {
+export default function BillingScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white">
       <ThemedView className="flex-1 p-6">
         <ThemedText type="title" className="mb-3">
-          Home
+          Billing
         </ThemedText>
         <ThemedText className="mb-4">
-          Welcome to the app. Use the tabs below to start a new split, manage cards, add friends,
-          and update your account settings.
+          Add and manage debit/credit cards for paying your share of a bill.
         </ThemedText>
-        <Link href="/splitpay" className="rounded-lg bg-blue-600 px-4 py-3">
+
+        <TouchableOpacity className="rounded-lg bg-blue-600 px-4 py-3">
           <ThemedText type="defaultSemiBold" className="text-white">
-            Start a new SplitPay session
+            Add a card
           </ThemedText>
-        </Link>
+        </TouchableOpacity>
       </ThemedView>
     </SafeAreaView>
   );
