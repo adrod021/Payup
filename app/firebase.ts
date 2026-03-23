@@ -1,18 +1,21 @@
-/**
- * Placeholder Firebase client initialization.
- *
- * The backend team will supply firebase config values and set up auth/db.
- * This file is the entry point for UI code to access Firebase services.
- */
+import { getApp, getApps, initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
-// Example (UI team should not initialize Admin SDK):
-// import { initializeApp, getApps } from 'firebase/app';
-// import { getAuth } from 'firebase/auth';
-// import { getFirestore } from 'firebase/firestore';
-//
-// const firebaseConfig = { ... };
-// export const firebaseApp = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-// export const auth = getAuth(firebaseApp);
-// export const db = getFirestore(firebaseApp);
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_ID",
+  appId: "YOUR_APP_ID"
+};
 
-export const firebasePlaceholder = true;
+// Initialize Firebase
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+// Use the standard getAuth - it works perfectly with Expo Go
+const auth = getAuth(app); 
+const db = getFirestore(app);
+
+export { app, auth, db };
