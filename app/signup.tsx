@@ -1,39 +1,50 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { login } from "./services/auth";
+import { signUp } from "./services/auth";
 
-export default function LoginScreen() {
+export default function SignUpScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const router = useRouter();
 
-  const handleLogin = async () => {
+  const handleSignUp = async () => {
     try {
-      await login(email, password);
+      await signUp(email, password);
+      Alert.alert("Success", "Welcome to PayUp!");
       router.replace("/(tabs)");
     } catch (error: any) {
-      Alert.alert("Login Error", error.message);
+      Alert.alert("Sign Up Error", error.message);
     }
   };
 
   return (
-    // ScrollView ensures the keyboard doesn't hide your buttons
     <ScrollView contentContainerStyle={{ flexGrow: 1 }} style={{ backgroundColor: 'white' }}>
-      
-      {/* THE FIX: flex: 1, justifyContent: 'center', and alignItems: 'center' center everything */}
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingVertical: 40 }}>
         
-        {/* Header - Huge and Centered */}
-        <View style={{ alignItems: 'center', marginBottom: 48, width: '100%' }}>
+        {/* Header Section */}
+        <View style={{ alignItems: 'center', marginBottom: 40, width: '100%' }}>
           <Text style={{ fontSize: 72, fontWeight: '900', color: 'black', textAlign: 'center' }}>PayUp</Text>
-          <Text style={{ fontSize: 32, fontWeight: '700', color: '#1f2937', marginTop: 8 }}>Login</Text>
-          <Text style={{ fontSize: 18, color: '#9ca3af', marginTop: 4 }}>By Split Squad</Text>
+          <Text style={{ fontSize: 32, fontWeight: '700', color: '#1f2937', marginTop: 8 }}>Sign Up</Text>
         </View>
         
-        {/* Inputs - width: '100%' stops it from shrinking to the left */}
+        {/* Input Section */}
         <View style={{ width: '100%' }}>
-          <View style={{ marginBottom: 24, width: '100%' }}>
+          {/* Display Name */}
+          <View style={{ marginBottom: 20, width: '100%' }}>
+            <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 18 }}>Display Name</Text>
+            <TextInput
+              placeholder="Your Name"
+              value={displayName}
+              onChangeText={setDisplayName}
+              placeholderTextColor="#9ca3af"
+              style={{ borderWidth: 2, borderColor: '#e5e7eb', padding: 20, borderRadius: 16, color: 'black', backgroundColor: '#f9fafb', fontSize: 18, width: '100%' }}
+            />
+          </View>
+
+          {/* Email */}
+          <View style={{ marginBottom: 20, width: '100%' }}>
             <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 18 }}>Email</Text>
             <TextInput
               placeholder="email@example.com"
@@ -46,7 +57,8 @@ export default function LoginScreen() {
             />
           </View>
 
-          <View style={{ marginBottom: 24, width: '100%' }}>
+          {/* Password */}
+          <View style={{ marginBottom: 20, width: '100%' }}>
             <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 18 }}>Password</Text>
             <TextInput
               placeholder="••••••••"
@@ -59,17 +71,18 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        {/* Buttons */}
+        {/* Create Account Button */}
         <TouchableOpacity 
-          onPress={handleLogin}
+          onPress={handleSignUp}
           style={{ backgroundColor: '#2563eb', padding: 20, borderRadius: 16, marginTop: 16, width: '100%', elevation: 5 }}
         >
-          <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 20, letterSpacing: 1.5 }}>LOGIN</Text>
+          <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 20, letterSpacing: 1.5 }}>CREATE ACCOUNT</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push("/signup")} style={{ marginTop: 40 }}>
+        {/* Back to Login */}
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 40 }}>
           <Text style={{ color: '#6b7280', textAlign: 'center', fontSize: 18 }}>
-            {"Don't have an account? "} <Text style={{ color: '#2563eb', fontWeight: 'bold', textDecorationLine: 'underline' }}>Sign Up</Text>
+            {"Already have an account? "} <Text style={{ color: '#2563eb', fontWeight: 'bold', textDecorationLine: 'underline' }}>Login</Text>
           </Text>
         </TouchableOpacity>
       </View>
