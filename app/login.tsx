@@ -13,8 +13,7 @@ export default function LoginScreen() {
   const handleSignUp = async () => {
     try {
       await signUp(email, password);
-      // If you have a separate profile creation service, call it here
-      Alert.alert("Success", "Account created!");
+      Alert.alert("Success", "Welcome to the Squad!");
       router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Sign Up Error", error.message);
@@ -32,16 +31,22 @@ export default function LoginScreen() {
 
   return (
     <View className="flex-1 justify-center p-6 bg-white">
-      <ThemedText type="title" className="mb-8 text-center">
-        Bill Splitter
-      </ThemedText>
+      <View className="mb-10 items-center">
+        <ThemedText type="title" className="text-5xl font-bold mb-2 text-black text-center">
+          PayUp
+        </ThemedText>
+        <Text className="text-gray-500 text-lg">
+          By Split Squad
+        </Text>
+      </View>
       
-      <View className="space-y-4">
+      <View>
         <TextInput
           placeholder="Display Name (Sign up only)"
           value={displayName}
           onChangeText={setDisplayName}
-          className="border border-gray-300 p-4 rounded-xl mb-3"
+          placeholderTextColor="#9ca3af"
+          className="border border-gray-300 p-4 rounded-xl mb-3 text-black"
         />
         <TextInput
           placeholder="Email"
@@ -49,14 +54,16 @@ export default function LoginScreen() {
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
-          className="border border-gray-300 p-4 rounded-xl mb-3"
+          placeholderTextColor="#9ca3af"
+          className="border border-gray-300 p-4 rounded-xl mb-3 text-black"
         />
         <TextInput
           placeholder="Password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          className="border border-gray-300 p-4 rounded-xl mb-3"
+          placeholderTextColor="#9ca3af"
+          className="border border-gray-300 p-4 rounded-xl mb-3 text-black"
         />
       </View>
 
@@ -64,15 +71,15 @@ export default function LoginScreen() {
         onPress={handleLogin}
         className="bg-blue-600 p-4 rounded-xl mt-6"
       >
-        <Text className="text-white text-center font-semibold">Login</Text>
+        <Text className="text-white text-center font-semibold text-lg">Login</Text>
       </TouchableOpacity>
 
       <TouchableOpacity 
         onPress={handleSignUp}
-        className="mt-4"
+        className="mt-6"
       >
         <Text className="text-blue-600 text-center text-base">
-          { "Don't have an account? Sign Up" }
+          {"Don't have an account?"} <Text className="font-bold underline">Sign Up</Text>
         </Text>
       </TouchableOpacity>
     </View>

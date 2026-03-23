@@ -1,23 +1,22 @@
 {
   "expo": {
-    "name": "my-bill-splitter",
-    "slug": "my-bill-splitter",
+    "name": "PayUp",
+    "slug": "payup-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mybillsplitter",
+    "scheme": "payup",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.splitsquad.payup"
     },
     "android": {
+      "package": "com.splitsquad.payup",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      }
     },
     "web": {
       "output": "static",
@@ -31,10 +30,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#000000",
-          "dark": {
-            "backgroundColor": "#FFFFFF"
-          }
+          "backgroundColor": "#000000"
         }
       ]
     ],

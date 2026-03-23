@@ -3,12 +3,12 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyA_VMe_qtKHjF4x0f5HCIultvkVZMgfyBM",
+  authDomain: "payup-app-cse4550.firebaseapp.com",
+  projectId: "payup-app-cse4550",
+  storageBucket: "payup-app-cse4550.firebasestorage.app",
+  messagingSenderId: "131813404781",
+  appId: "1:131813404781:web:6519b2587741a4b3cfcf64"
 };
 
 // Initialize Firebase
@@ -19,3 +19,4 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 export { app, auth, db };
+
