@@ -13,7 +13,7 @@ interface Friend {
   id: string;
   email: string;
   status: 'pending' | 'accepted' | 'request'; 
-  sessionId?: string; // Added to track the group session ID
+  sessionId?: string; 
 }
 
 export default function FriendsScreen() {
@@ -22,7 +22,6 @@ export default function FriendsScreen() {
   const { user } = useAuth();
   const router = useRouter();
 
-  // IMPLEMENTED: Real-time listener for group invites
   useEffect(() => {
     if (!user?.email) return;
 
@@ -39,9 +38,8 @@ export default function FriendsScreen() {
         ...doc.data()
       })) as any[];
       
-      // Merge current local friend requests with live group invites from Firebase
       setFriends(newInvites.map(inv => ({
-        id: inv.id,
+        id: inv.id, // This is the inviteId
         email: inv.invitedBy,
         status: 'request',
         sessionId: inv.sessionId 
@@ -54,7 +52,6 @@ export default function FriendsScreen() {
   const handleSendRequest = () => {
     const cleanEmail = email.toLowerCase().trim();
     if (cleanEmail.includes('@') && cleanEmail.includes('.')) {
-      // Logic for adding a standard friend (Local state for now)
       setFriends((prevFriends) => [
         ...prevFriends, 
         { id: Date.now().toString(), email: cleanEmail, status: 'pending' }
@@ -71,16 +68,16 @@ export default function FriendsScreen() {
   };
 
   const acceptGroupInvite = (item: Friend) => {
-    // Navigate the participant to the join lobby with the specific sessionId
     if (item.sessionId) {
+      // Navigate to lobby with both sessionId and inviteId for status update
       router.push({
         pathname: '/splitpay/join',
-        params: { sessionId: item.sessionId }
+        params: { 
+          sessionId: item.sessionId,
+          inviteId: item.id 
+        }
       });
-      
-      Alert.alert("Joining Group", `Connecting to ${item.email}'s session...`);
     } else {
-      // Fallback for standard friend requests
       setFriends(friends.map(f => f.id === item.id ? { ...f, status: 'accepted' } : f));
     }
   };
@@ -152,16 +149,16 @@ export default function FriendsScreen() {
               <View style={{ 
                 flexDirection: 'row', 
                 alignItems: 'center', 
-                backgroundColor: item.status === 'request' ? '#eff6ff' : '#f9fafb', 
+                backgroundColor: item.status === 'request' ? '#f0fdf4' : '#f9fafb', 
                 padding: 16, 
                 borderRadius: 20, 
                 marginBottom: 12,
                 borderWidth: 1,
-                borderColor: item.status === 'request' ? '#bfdbfe' : '#e5e7eb'
+                borderColor: item.status === 'request' ? '#bcf0da' : '#e5e7eb'
               }}>
                 <View style={{ flex: 1 }}>
                   <Text numberOfLines={1} style={{ fontSize: 15, color: '#374151', fontWeight: '700' }}>{item.email}</Text>
-                  <Text style={{ fontSize: 12, color: item.status === 'request' ? '#2563eb' : '#6b7280', fontWeight: '500' }}>
+                  <Text style={{ fontSize: 12, color: item.status === 'request' ? '#00966d' : '#6b7280', fontWeight: '500' }}>
                     {item.status === 'request' ? 'Invited you to a group' : item.status === 'pending' ? 'Friend request pending' : 'Added to Friends'}
                   </Text>
                 </View>
@@ -169,7 +166,7 @@ export default function FriendsScreen() {
                 {item.status === 'request' && (
                   <TouchableOpacity 
                     onPress={() => acceptGroupInvite(item)}
-                    style={{ backgroundColor: '#2563eb', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, marginRight: 8 }}
+                    style={{ backgroundColor: '#00966d', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, marginRight: 8 }}
                   >
                     <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>JOIN</Text>
                   </TouchableOpacity>

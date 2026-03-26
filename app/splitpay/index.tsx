@@ -1,82 +1,46 @@
-import { ThemedText } from '@/components/themed-text';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { ScrollView, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React from "react";
+import { Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function HomeScreen() {
+export default function SplitPayEntryScreen() {
+  const router = useRouter();
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
+      <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: 40 }}>
         
-        <ThemedText type="title" style={{ marginBottom: 8, fontSize: 32 }}>PayUp</ThemedText>
-        <ThemedText style={{ color: '#6b7280', marginBottom: 40 }}>Welcome to the Split Hub</ThemedText>
-
-        {/* MAIN SPLIT PAY BUTTON */}
         <TouchableOpacity 
-          className="bg-emerald-600 rounded-3xl p-8 w-full items-center shadow-lg"
-          style={{ marginBottom: 24, flexDirection: 'row', justifyContent: 'center' }}
+          onPress={() => router.back()} 
+          style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", marginBottom: 20 }}
         >
-          <MaterialCommunityIcons name="currency-usd" size={32} color="white" style={{ marginRight: 10 }} />
-          <ThemedText className="text-white font-bold text-2xl">Start Split Pay</ThemedText>
+          <Ionicons name="arrow-back" size={24} color="#00966d" />
+          <Text style={{ color: "#00966d", fontWeight: "bold", fontSize: 18, marginLeft: 8 }}>Back</Text>
         </TouchableOpacity>
 
-        <ThemedText style={{ color: '#6b7280', marginBottom: 20 }}>Choose your role below</ThemedText>
-
-        {/* HOST vs. PARTICIPANT SECTION */}
-        <View style={{ width: '100%', gap: 16 }}>
-          
-          {/* HOST: Create Group */}
-          <View className="bg-gray-100 rounded-2xl p-6 border border-gray-200" style={{ gap: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="people" size={24} color="#2563eb" style={{ marginRight: 8 }} />
-              <ThemedText className="text-blue-600 font-bold text-lg">Create Group (Host)</ThemedText>
-            </View>
-            <ThemedText style={{ color: '#4b5563', fontSize: 14 }}>Add participants and choose your split method.</ThemedText>
-            
-            {/* Host Specific Buttons */}
-            <TouchableOpacity 
-              className="bg-gray-200 rounded-xl p-4 w-full items-center border border-gray-300"
-              style={{ flexDirection: 'row', justifyContent: 'center' }}
-            >
-              <Ionicons name="receipt-outline" size={20} color="#4b5563" style={{ marginRight: 8 }} />
-              <ThemedText className="text-gray-700 font-semibold">Split by Item</ThemedText>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              className="bg-gray-200 rounded-xl p-4 w-full items-center border border-gray-300"
-              style={{ flexDirection: 'row', justifyContent: 'center' }}
-            >
-              <MaterialCommunityIcons name="clover" size={20} color="#4b5563" style={{ marginRight: 8 }} />
-              <ThemedText className="text-gray-700 font-semibold">Roulette</ThemedText>
-            </TouchableOpacity>
-          </View>
-
-          {/* PARTICIPANT: Join Group */}
-          <View className="bg-gray-100 rounded-2xl p-6 border border-gray-200" style={{ gap: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="enter" size={24} color="#059669" style={{ marginRight: 8 }} />
-              <ThemedText className="text-emerald-600 font-bold text-lg">Join Group (Participant)</ThemedText>
-            </View>
-            <ThemedText style={{ color: '#4b5563', fontSize: 14 }}>Wait for the host to scan or start the split.</ThemedText>
-            
-            <TouchableOpacity 
-              className="bg-emerald-100 rounded-xl p-4 w-full items-center border border-emerald-300"
-              style={{ flexDirection: 'row', justifyContent: 'center' }}
-            >
-              <ThemedText className="text-emerald-700 font-semibold">Wait for Host</ThemedText>
-            </TouchableOpacity>
-          </View>
-
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ fontSize: 32, fontWeight: "900", color: "black" }}>Join Session</Text>
         </View>
 
-        <View style={{ marginTop: 40, width: '100%' }}>
-          <ThemedText type="subtitle" style={{ marginBottom: 12 }}>Activity</ThemedText>
-          <View className="bg-gray-50 rounded-xl p-4 items-center">
-            <ThemedText style={{ color: '#9ca3af', fontStyle: 'italic' }}>No active sessions</ThemedText>
-          </View>
-        </View>
+        <View style={{ backgroundColor: "#f3f4f6", padding: 24, borderRadius: 24, width: "100%", borderWidth: 2, borderColor: "#e5e7eb", alignItems: "center" }}>
+          <Ionicons name="mail-open-outline" size={50} color="#6b7280" style={{ marginBottom: 15 }} />
+          <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center", color: "#374151" }}>
+            Check your Friend Tab
+          </Text>
+          {/* FIXED: Escaped the apostrophe in 'friend's' */}
+          <Text style={{ fontSize: 14, color: "#6b7280", textAlign: "center", marginTop: 8, lineHeight: 20 }}>
+            To join a group, tap the &apos;Join&apos; button on an active invite from your friend&apos;s list.
+          </Text>
 
-      </ScrollView>
+          <TouchableOpacity 
+            onPress={() => router.push("../(tabs)/friend")}
+            style={{ backgroundColor: "#00966d", width: "100%", padding: 16, borderRadius: 12, marginTop: 20 }}
+          >
+            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>Go to Invites</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }

@@ -42,19 +42,23 @@ export default function RootLayout() {
     }
   }, [user, segments, initializing, router]); 
 
-  // While Firebase is checking the session, show nothing (or a basic splash)
   if (initializing) {
     return null;
   }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      {/* Added screenOptions here to hide headers globally by default */}
+      <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="signup" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        
+        {/* Specifically hiding the splitpay headers */}
         <Stack.Screen name="splitpay/index" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="splitpay/join/index" options={{ headerShown: false }} />
+        
+        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal', headerShown: true }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

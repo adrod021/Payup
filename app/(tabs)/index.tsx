@@ -1,10 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// 1. Import your custom hooks and services
+// Firebase Imports
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
+
+// Custom hooks and services
 import { useAuth } from "../hooks/useAuth";
 import { createSessionAndInvite } from "../services/invite";
 
@@ -14,11 +18,27 @@ export default function HomeScreen() {
   const [showHostOptions, setShowHostOptions] = useState(false); 
   const [inviteEmail, setInviteEmail] = useState("");
   const [participants, setParticipants] = useState<string[]>([]); 
-  const [isCreating, setIsCreating] = useState(false); // To handle loading state
+  const [isCreating, setIsCreating] = useState(false);
   
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [joinedCount, setJoinedCount] = useState(1);
+
   const router = useRouter();
-  const { user } = useAuth(); // 2. Get the current logged in user
+  const { user } = useAuth(); 
   const MAX_PARTICIPANTS = 10;
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const unsubscribe = onSnapshot(doc(db, "sessions", sessionId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.participants) {
+          setJoinedCount(data.participants.length);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [sessionId]);
 
   const handleBack = () => {
     if (showHostOptions) {
@@ -31,24 +51,18 @@ export default function HomeScreen() {
     }
   };
 
-  // 3. New logic to create the Firebase session and invite friends
   const handleStartHosting = async () => {
     if (!user?.email) {
       Alert.alert("Error", "You must be logged in to host.");
       return;
     }
-
     setIsCreating(true);
     try {
-      // Creates the 'sessions' doc and 'invites' docs simultaneously
-      const sessionId = await createSessionAndInvite(user.email, participants);
-      
-      setShowHostOptions(true); // Move to the method selection UI
-      
-      // We will keep the session ID in mind for the router push below
-      return sessionId;
+      const newId = await createSessionAndInvite(user.email, participants);
+      setSessionId(newId);
+      setShowHostOptions(true); 
     } catch (error) {
-    Alert.alert("Error", `Failed to create session: ${error}`);
+      Alert.alert("Error", `Failed to create session: ${error}`);
     } finally {
       setIsCreating(false);
     }
@@ -74,23 +88,27 @@ export default function HomeScreen() {
     setParticipants(newList);
   };
 
-  // Helper to navigate with the sessionId (Mocking a stateful flow)
   const navigateToMethod = (path: "/splitpay/create/scan" | "/splitpay/create/roulette_spin") => {
-    // In a real flow, we'd ensure sessionId exists from handleStartHosting
     router.push({
       pathname: path,
-      params: { host: user?.email } 
+      params: { 
+        host: user?.email,
+        sessionId: sessionId 
+      } 
     });
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} style={{ backgroundColor: 'white' }}>
-        <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: 40 }}>
+        <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: showOptions ? 20 : 40 }}>
           
-          <View style={{ marginBottom: 20 }}>
-            <Text style={{ fontSize: 32, fontWeight: '900', color: 'black' }}>Home</Text>
-          </View>
+          {/* FIXED: "Home" text is now conditional - only shows on the very first screen */}
+          {!showOptions && (
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 32, fontWeight: '900', color: 'black' }}>Home</Text>
+            </View>
+          )}
 
           {!showOptions ? (
             <View style={{ alignItems: 'center', marginTop: 20 }}>
@@ -139,7 +157,8 @@ export default function HomeScreen() {
 
                 {showInvite && !showHostOptions && (
                   <View>
-                    <Text style={{ color: '#6b7280', textAlign: 'center', marginBottom: 10 }}>{participants.length} / {MAX_PARTICIPANTS} People Joined</Text>
+                    <Text style={{ color: '#6b7280', textAlign: 'center', marginBottom: 10 }}>{joinedCount} / {MAX_PARTICIPANTS} People Joined</Text>
+                    
                     <View style={{ flexDirection: 'row', marginBottom: 20 }}>
                       <TextInput 
                         placeholder="Invite by email"
@@ -163,7 +182,6 @@ export default function HomeScreen() {
                       ))}
                     </View>
                     
-                    {/* IMPLEMENTED: The Start Session Button with Logic */}
                     <TouchableOpacity 
                       onPress={handleStartHosting}
                       disabled={participants.length === 0 || isCreating}
@@ -181,6 +199,10 @@ export default function HomeScreen() {
 
                 {showHostOptions && (
                   <>
+                    <Text style={{ color: '#00966d', textAlign: 'center', fontWeight: 'bold', marginBottom: 15 }}>
+                      Room Active: {joinedCount} Member(s) Ready
+                    </Text>
+
                     <Text style={{ fontSize: 16, fontWeight: '700', color: '#6b7280', marginBottom: 12, textAlign: 'center' }}>Select Method:</Text>
                     <TouchableOpacity onPress={() => navigateToMethod('/splitpay/create/scan')} style={{ borderWidth: 2, borderColor: '#00966d', padding: 18, borderRadius: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
                       <Ionicons name="receipt" size={20} color="#00966d" style={{ marginRight: 10 }} />

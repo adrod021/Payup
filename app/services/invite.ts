@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { addDoc, arrayUnion, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
 // Create a session and invite people
@@ -8,7 +8,7 @@ export async function createSessionAndInvite(hostEmail: string, participantEmail
     host: hostEmail,
     status: "waiting", // waiting, scanning, roulette, finished
     createdAt: serverTimestamp(),
-    participants: [hostEmail] 
+    participants: [hostEmail] // Host is the first participant
   });
 
   // 2. Create invites for everyone else
@@ -28,13 +28,16 @@ export async function createSessionAndInvite(hostEmail: string, participantEmail
 
 // Join a session
 export async function joinSession(sessionId: string, userEmail: string, inviteId: string) {
-  // Update invite status
-  await updateDoc(doc(db, "invites", inviteId), { status: "accepted" });
+  // 1. Update invite status to accepted (ONLY if inviteId exists)
+  if (inviteId && inviteId.trim() !== "") {
+    await updateDoc(doc(db, "invites", inviteId), { status: "accepted" });
+  }
   
-  // Add user to the session participants list
+  // 2. Add user to the session participants list without overwriting others
   const sessionRef = doc(db, "sessions", sessionId);
-  // Note: In a real app, use arrayUnion here
+  
   await updateDoc(sessionRef, {
-    participants: userEmail // will want to append this to the array
+    // arrayUnion ensures the email is only added if it's not already there
+    participants: arrayUnion(userEmail) 
   });
 }
