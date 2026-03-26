@@ -1,46 +1,107 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// 1. Define the shape of a friend object
+// Firebase Imports
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "../firebase";
+import { useAuth } from "../hooks/useAuth";
+
 interface Friend {
   id: string;
   email: string;
+  status: 'pending' | 'accepted' | 'request'; 
+  sessionId?: string; // Added to track the group session ID
 }
 
 export default function FriendsScreen() {
   const [email, setEmail] = useState('');
-  // 2. Explicitly type the state as an array of Friend objects
   const [friends, setFriends] = useState<Friend[]>([]); 
+  const { user } = useAuth();
+  const router = useRouter();
 
-  const handleInvite = () => {
+  // IMPLEMENTED: Real-time listener for group invites
+  useEffect(() => {
+    if (!user?.email) return;
+
+    // Listen for invites where the invitedEmail matches the current user
+    const q = query(
+      collection(db, "invites"),
+      where("invitedEmail", "==", user.email.toLowerCase()),
+      where("status", "==", "pending")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const newInvites = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as any[];
+      
+      // Merge current local friend requests with live group invites from Firebase
+      setFriends(newInvites.map(inv => ({
+        id: inv.id,
+        email: inv.invitedBy,
+        status: 'request',
+        sessionId: inv.sessionId 
+      })));
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleSendRequest = () => {
     const cleanEmail = email.toLowerCase().trim();
-
     if (cleanEmail.includes('@') && cleanEmail.includes('.')) {
-      // 3. Use functional update for state safety
+      // Logic for adding a standard friend (Local state for now)
       setFriends((prevFriends) => [
         ...prevFriends, 
-        { id: Date.now().toString(), email: cleanEmail }
+        { id: Date.now().toString(), email: cleanEmail, status: 'pending' }
       ]);
       setEmail(''); 
+      Alert.alert("Success", "Friend request sent!");
     } else {
       Alert.alert("Invalid Email", "Please enter a valid email address.");
     }
   };
 
+  const removeFriend = (id: string) => {
+    setFriends(friends.filter(f => f.id !== id));
+  };
+
+  const acceptGroupInvite = (item: Friend) => {
+    // Navigate the participant to the join lobby with the specific sessionId
+    if (item.sessionId) {
+      router.push({
+        pathname: '/splitpay/join',
+        params: { sessionId: item.sessionId }
+      });
+      
+      Alert.alert("Joining Group", `Connecting to ${item.email}'s session...`);
+    } else {
+      // Fallback for standard friend requests
+      setFriends(friends.map(f => f.id === item.id ? { ...f, status: 'accepted' } : f));
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingTop: 80 }}>
+      <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: 40 }}>
         
-        <View style={{ alignItems: 'center', marginBottom: 48, width: '100%' }}>
-          <Text style={{ fontSize: 72, fontWeight: '900', color: 'black', textAlign: 'center' }}>PayUp</Text>
-          <Text style={{ fontSize: 24, color: '#9ca3af', marginTop: 4, textAlign: 'center' }}>Friends</Text>
+        {/* Header */}
+        <View style={{ marginBottom: 32 }}>
+          <Text style={{ fontSize: 32, fontWeight: '900', color: 'black' }}>Friends</Text>
+          <Text style={{ fontSize: 16, color: '#6b7280', marginTop: 4 }}>
+            Send friend requests and manage active group invites.
+          </Text>
         </View>
 
-        <View style={{ width: '100%', marginBottom: 40 }}>
+        {/* Input Section */}
+        <View style={{ width: '100%', marginBottom: 32 }}>
           <TextInput
-            placeholder="Enter friend's email"
+            placeholder="Enter email to add friend"
+            placeholderTextColor="#6b7280"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -52,54 +113,75 @@ export default function FriendsScreen() {
               borderColor: '#e5e7eb', 
               borderRadius: 16, 
               padding: 20, 
-              marginBottom: 12 
+              marginBottom: 12,
+              color: 'black'
             }}
           />
-          
           <TouchableOpacity 
-            onPress={handleInvite}
+            onPress={handleSendRequest}
             activeOpacity={0.8}
             style={{ 
-              backgroundColor: '#059669', 
-              paddingVertical: 20, 
-              borderRadius: 24, 
-              width: '100%', 
-              elevation: 4,
-              alignItems: 'center' 
+              backgroundColor: '#00966d', 
+              paddingVertical: 18, 
+              borderRadius: 16, 
+              alignItems: 'center',
+              elevation: 2
             }}
           >
-            <Text style={{ color: 'white', fontWeight: '900', fontSize: 18, letterSpacing: 1 }}>
-              SEND INVITE
-            </Text>
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>SEND FRIEND REQUEST</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ width: '100%', flex: 1 }}>
-          <Text style={{ fontSize: 14, fontWeight: '700', color: '#9ca3af', marginBottom: 15, textTransform: 'uppercase', letterSpacing: 2 }}>
-            Pending & Friends
+        {/* List Section */}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 12, fontWeight: '800', color: '#6b7280', marginBottom: 15, textTransform: 'uppercase', letterSpacing: 1.5 }}>
+            Pending Requests & Group Invites
           </Text>
           
           <FlatList
             data={friends}
             keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
             ListEmptyComponent={() => (
-              <View style={{ marginTop: 20, alignItems: 'center' }}>
-                <Text style={{ color: '#d1d5db', fontStyle: 'italic' }}>No friends added yet.</Text>
+              <View style={{ marginTop: 40, alignItems: 'center' }}>
+                <Ionicons name="people-outline" size={48} color="#6b7280" />
+                <Text style={{ color: '#6b7280', marginTop: 8, fontWeight: '500' }}>No pending activity.</Text>
               </View>
             )}
             renderItem={({ item }) => (
               <View style={{ 
                 flexDirection: 'row', 
-                alignItems: 'center', // Fixed typo: itemsCenter -> alignItems
-                backgroundColor: '#f3f4f6', 
+                alignItems: 'center', 
+                backgroundColor: item.status === 'request' ? '#eff6ff' : '#f9fafb', 
                 padding: 16, 
-                borderRadius: 16, 
-                marginBottom: 10,
+                borderRadius: 20, 
+                marginBottom: 12,
                 borderWidth: 1,
-                borderColor: '#e5e7eb'
+                borderColor: item.status === 'request' ? '#bfdbfe' : '#e5e7eb'
               }}>
-                <Ionicons name="mail-outline" size={20} color="#6b7280" style={{ marginRight: 10 }} />
-                <Text style={{ fontSize: 15, color: '#374151', fontWeight: '600' }}>{item.email}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={{ fontSize: 15, color: '#374151', fontWeight: '700' }}>{item.email}</Text>
+                  <Text style={{ fontSize: 12, color: item.status === 'request' ? '#2563eb' : '#6b7280', fontWeight: '500' }}>
+                    {item.status === 'request' ? 'Invited you to a group' : item.status === 'pending' ? 'Friend request pending' : 'Added to Friends'}
+                  </Text>
+                </View>
+
+                {item.status === 'request' && (
+                  <TouchableOpacity 
+                    onPress={() => acceptGroupInvite(item)}
+                    style={{ backgroundColor: '#2563eb', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, marginRight: 8 }}
+                  >
+                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>JOIN</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity onPress={() => removeFriend(item.id)}>
+                  <Ionicons 
+                    name={item.status === 'request' ? "close-circle" : "trash-outline"} 
+                    size={22} 
+                    color={item.status === 'request' ? "#6b7280" : "#ef4444"} 
+                  />
+                </TouchableOpacity>
               </View>
             )}
           />

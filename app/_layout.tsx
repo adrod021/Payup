@@ -1,3 +1,4 @@
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -6,8 +7,6 @@ import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import "../global.css";
 import { auth } from './firebase';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -38,18 +37,23 @@ export default function RootLayout() {
     if (!user && inTabsGroup) {
       router.replace('/login' as any); 
     } 
-    // The "as any" on segments[0] below fixes the "no overlap" error
     else if (user && (segments[0] as any) === 'login') {
       router.replace('/(tabs)' as any);
     }
   }, [user, segments, initializing, router]); 
 
+  // While Firebase is checking the session, show nothing (or a basic splash)
+  if (initializing) {
+    return null;
+  }
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="signup" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="splitpay" options={{ headerShown: true, title: 'SplitPay' }} />
+        <Stack.Screen name="splitpay/index" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />

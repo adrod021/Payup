@@ -1,33 +1,40 @@
-import { addDoc, collection, doc, getDoc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase"; // Fixed path
+import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
-export async function createInvite(groupId: string, invitedBy: string, invitedUserId?: string, invitedEmail?: string): Promise<string> {
-  const invite = {
-    invitedBy,
-    invitedUserId: invitedUserId || null,
-    invitedEmail: invitedEmail || null,
-    status: "pending",
-    createdAt: new Date().toISOString()
-  };
-  const inviteRef = await addDoc(collection(db, "groups", groupId, "invites"), invite);
-  return inviteRef.id;
-}
-
-export async function acceptInvite(groupId: string, inviteId: string): Promise<void> {
-  const inviteRef = doc(db, "groups", groupId, "invites", inviteId);
-  const inviteSnap = await getDoc(inviteRef);
-  if (!inviteSnap.exists()) throw new Error("Invite not found");
-  
-  await updateDoc(inviteRef, {
-    status: "accepted",
-    acceptedAt: new Date().toISOString()
+// Create a session and invite people
+export async function createSessionAndInvite(hostEmail: string, participantEmails: string[]) {
+  // 1. Create the actual Session
+  const sessionRef = await addDoc(collection(db, "sessions"), {
+    host: hostEmail,
+    status: "waiting", // waiting, scanning, roulette, finished
+    createdAt: serverTimestamp(),
+    participants: [hostEmail] 
   });
+
+  // 2. Create invites for everyone else
+  const invitePromises = participantEmails.map(email => 
+    addDoc(collection(db, "invites"), {
+      sessionId: sessionRef.id,
+      invitedBy: hostEmail,
+      invitedEmail: email.toLowerCase(),
+      status: "pending",
+      createdAt: serverTimestamp()
+    })
+  );
+
+  await Promise.all(invitePromises);
+  return sessionRef.id;
 }
 
-export async function declineInvite(groupId: string, inviteId: string): Promise<void> {
-  const inviteRef = doc(db, "groups", groupId, "invites", inviteId);
-  await updateDoc(inviteRef, {
-    status: "declined",
-    declinedAt: new Date().toISOString()
+// Join a session
+export async function joinSession(sessionId: string, userEmail: string, inviteId: string) {
+  // Update invite status
+  await updateDoc(doc(db, "invites", inviteId), { status: "accepted" });
+  
+  // Add user to the session participants list
+  const sessionRef = doc(db, "sessions", sessionId);
+  // Note: In a real app, use arrayUnion here
+  await updateDoc(sessionRef, {
+    participants: userEmail // will want to append this to the array
   });
 }

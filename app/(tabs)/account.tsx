@@ -7,25 +7,27 @@ export default function AccountScreen() {
   const router = useRouter(); 
 
   const handleLogout = () => {
-    // This uses the router to send the user back to the Login screen
-    router.replace("/login");
+    // UPDATED: Navigates back to the root (usually your login/index page)
+    router.replace("/");
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={{ flex: 1, padding: 32 }}>
-          
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} style={{ backgroundColor: 'white' }}>
+        <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: 40 }}>
           <View style={{ marginBottom: 32 }}>
-            <Text style={{ fontSize: 40, fontWeight: '800', color: 'black' }}>Account</Text>
-            <Text style={{ fontSize: 16, color: '#6b7280', marginTop: 8, lineHeight: 24 }}>
-              Manage your account settings and squad preferences.
+            <Text style={{ fontSize: 32, fontWeight: '900', color: 'black' }}>Account</Text>
+            <Text style={{ fontSize: 16, color: '#9ca3af', marginTop: 4 }}>
+              Manage your profile and app settings.
             </Text>
           </View>
 
           <View style={{ width: '100%' }}>
             
+            {/* Pressable but non-functional */}
             <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={() => {}}
               style={{ backgroundColor: '#2563eb', padding: 20, borderRadius: 16, marginBottom: 16 }}
             >
               <Text style={{ color: 'white', fontWeight: '700', fontSize: 18, textAlign: 'center' }}>
@@ -33,27 +35,29 @@ export default function AccountScreen() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={{ backgroundColor: '#475569', padding: 20, borderRadius: 16, marginBottom: 16 }}
-            >
-              <Text style={{ color: 'white', fontWeight: '700', fontSize: 18, textAlign: 'center' }}>
-                Add Email / Phone
-              </Text>
-            </TouchableOpacity>
-
             <View style={{ height: 1, backgroundColor: '#e5e7eb', marginVertical: 24, width: '100%' }} />
 
-            {/* Logout Button: This clears the 'unused router' warning */}
+            {/* Functional Logout Button */}
             <TouchableOpacity 
               onPress={handleLogout}
-              style={{ borderWidth: 2, borderColor: '#2563eb', padding: 20, borderRadius: 16, marginBottom: 16 }}
+              activeOpacity={0.7}
+              style={{ 
+                borderWidth: 2, 
+                borderColor: '#00966d', 
+                padding: 20, 
+                borderRadius: 16, 
+                marginBottom: 16 
+              }}
             >
-              <Text style={{ color: '#2563eb', fontWeight: '700', fontSize: 18, textAlign: 'center' }}>
+              <Text style={{ color: '#00966d', fontWeight: '700', fontSize: 18, textAlign: 'center' }}>
                 Log Out
               </Text>
             </TouchableOpacity>
 
+            {/* Pressable but non-functional */}
             <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={() => {}}
               style={{ backgroundColor: '#dc2626', padding: 20, borderRadius: 16 }}
             >
               <Text style={{ color: 'white', fontWeight: '700', fontSize: 18, textAlign: 'center' }}>
