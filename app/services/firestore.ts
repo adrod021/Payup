@@ -1,35 +1,41 @@
-/**
- * Firestore service placeholder.
- *
- * The backend team can implement these functions using Firestore or another database provider.
- */
-
 import type { BillSession, Invite, User } from '@/app/types';
+import { addDoc, collection, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
+// Saves a new user profile to the "users" collection using their unique ID
 export async function createUser(user: User): Promise<void> {
-  throw new Error('createUser not implemented');
+  await setDoc(doc(db, "users", user.id), user);
 }
 
+// Retrieves a specific user's data from the database based on their ID
 export async function getUser(userId: string): Promise<User> {
-  throw new Error('getUser not implemented');
+  const snap = await getDoc(doc(db, "users", userId));
+  return snap.data() as User;
 }
 
+// Creates a new bill splitting session and returns the auto-generated document ID
 export async function createBillSession(session: BillSession): Promise<string> {
-  throw new Error('createBillSession not implemented');
+  const docRef = await addDoc(collection(db, "sessions"), session);
+  return docRef.id;
 }
 
-export async function getBillSession(sessionId: string): Promise<BillSession> {
-  throw new Error('getBillSession not implemented');
+// Fetches a single session by ID and returns the data or null if not found
+export async function getBillSession(sessionId: string): Promise<BillSession | null> {
+  const snap = await getDoc(doc(db, "sessions", sessionId));
+  if (snap.exists()) {
+    return snap.data() as BillSession;
+  }
+  return null;
 }
 
-export async function updateBillSession(session: BillSession): Promise<void> {
-  throw new Error('updateBillSession not implemented');
+// Applies partial updates to an existing session (ex: changing status or adding items)
+export async function updateBillSession(sessionId: string, data: Partial<BillSession>): Promise<void> {
+  const docRef = doc(db, "sessions", sessionId);
+  await updateDoc(docRef, data);
 }
 
+// Records a new group invite in the "invites" collection for a specific session
 export async function createInvite(invite: Invite): Promise<string> {
-  throw new Error('createInvite not implemented');
-}
-
-export async function acceptInvite(groupId: string, inviteId: string): Promise<void> {
-  throw new Error('acceptInvite not implemented');
+  const docRef = await addDoc(collection(db, "invites"), invite);
+  return docRef.id;
 }

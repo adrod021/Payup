@@ -11,6 +11,7 @@ export default function SplitPayEntryScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
       <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: 40 }}>
         
+        {/* Returns the user to the previous screen in the stack */}
         <TouchableOpacity 
           onPress={() => router.back()} 
           style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", marginBottom: 20 }}
@@ -23,16 +24,18 @@ export default function SplitPayEntryScreen() {
           <Text style={{ fontSize: 32, fontWeight: "900", color: "black" }}>Join Session</Text>
         </View>
 
+        {/* Instructional card explaining that invites are managed in the Friends tab */}
         <View style={{ backgroundColor: "#f3f4f6", padding: 24, borderRadius: 24, width: "100%", borderWidth: 2, borderColor: "#e5e7eb", alignItems: "center" }}>
           <Ionicons name="mail-open-outline" size={50} color="#6b7280" style={{ marginBottom: 15 }} />
           <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center", color: "#374151" }}>
             Check your Friend Tab
           </Text>
-          {/* FIXED: Escaped the apostrophe in 'friend's' */}
+          {/* &apos is used since the string contains an apostrophe */}
           <Text style={{ fontSize: 14, color: "#6b7280", textAlign: "center", marginTop: 8, lineHeight: 20 }}>
             To join a group, tap the &apos;Join&apos; button on an active invite from your friend&apos;s list.
           </Text>
 
+          {/* Direct link to the Friends tab to help users find their pending invites */}
           <TouchableOpacity 
             onPress={() => router.push("../(tabs)/friend")}
             style={{ backgroundColor: "#00966d", width: "100%", padding: 16, borderRadius: 12, marginTop: 20 }}

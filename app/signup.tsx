@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { signUp } from "./services/auth";
 
@@ -8,15 +8,31 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [loading, setLoading] = useState(false); 
   const router = useRouter();
 
+  // This function handles creating a new user account
   const handleSignUp = async () => {
+    // Check if any fields are empty before starting
+    if (!displayName.trim() || !email.trim() || !password.trim()) {
+      Alert.alert("Error", "Please fill in all fields.");
+      return;
+    }
+
+    setLoading(true); 
+
     try {
-      await signUp(email, password);
+      // Send the info to our auth service
+      await signUp(email, password, displayName);
+      
       Alert.alert("Success", "Welcome to PayUp!");
+      // Send the user to the main app tabs
       router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Sign Up Error", error.message);
+    } finally {
+      // Turn off the loading spinner
+      setLoading(false); 
     }
   };
 
@@ -26,14 +42,7 @@ export default function SignUpScreen() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingVertical: 40 }}>
           
           <View style={{ alignItems: 'center', marginBottom: 40, width: '100%' }}>
-            {/* PayUp Header: TRUE System Default (No Italic, No Custom Weight) */}
-            <Text style={{ 
-              fontSize: 72, 
-              fontWeight: 'bold', // Standard System Bold
-              color: 'black', 
-              textAlign: 'center',
-              letterSpacing: -1, // Makes the default font look more like a "logo"
-            }}>
+            <Text style={{ fontSize: 72, fontWeight: 'bold', color: 'black', textAlign: 'center', letterSpacing: -1 }}>
               PayUp
             </Text>
             <Text style={{ fontSize: 28, fontWeight: '600', color: '#4b5563', marginTop: 4 }}>
@@ -42,7 +51,7 @@ export default function SignUpScreen() {
           </View>
           
           <View style={{ width: '100%' }}>
-            {/* Display Name Input */}
+            {/* Name input area */}
             <View style={{ marginBottom: 20 }}>
               <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 16 }}>Display Name</Text>
               <TextInput
@@ -54,7 +63,7 @@ export default function SignUpScreen() {
               />
             </View>
 
-            {/* Email Input */}
+            {/* Email input area */}
             <View style={{ marginBottom: 20 }}>
               <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 16 }}>Email</Text>
               <TextInput
@@ -68,7 +77,7 @@ export default function SignUpScreen() {
               />
             </View>
 
-            {/* Password Input */}
+            {/* Password input area */}
             <View style={{ marginBottom: 24 }}>
               <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 16 }}>Password</Text>
               <TextInput
@@ -82,15 +91,33 @@ export default function SignUpScreen() {
             </View>
           </View>
 
-          {/* GREEN Button (#00966d) */}
+          {/* Button to submit the form */}
           <TouchableOpacity 
             activeOpacity={0.8}
             onPress={handleSignUp}
-            style={{ backgroundColor: '#00966d', padding: 20, borderRadius: 16, width: '100%', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}
+            disabled={loading} 
+            style={{ 
+              backgroundColor: loading ? '#057a5b' : '#00966d', 
+              padding: 20, 
+              borderRadius: 16, 
+              width: '100%', 
+              elevation: 4, 
+              shadowColor: '#000', 
+              shadowOffset: { width: 0, height: 2 }, 
+              shadowOpacity: 0.1, 
+              shadowRadius: 4 
+            }}
           >
-            <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 18, letterSpacing: 1 }}>CREATE ACCOUNT</Text>
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 18, letterSpacing: 1 }}>
+                CREATE ACCOUNT
+              </Text>
+            )}
           </TouchableOpacity>
 
+          {/* Link to go back to the Login screen */}
           <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 32 }}>
             <Text style={{ color: '#6b7280', textAlign: 'center', fontSize: 16 }}>
               {"Already have an account? "} 

@@ -1,25 +1,18 @@
-/**
- * Helpers for parsing OCR text (e.g., receipt amounts) into usable values.
- *
- * These are intentionally small and defensive: OCR text is often noisy.
- */
+// Helper functions for turning messy OCR text into usable numbers
+// These are defensive because scanned text often contains errors or noise
 
-/**
- * Converts a string like "$1,234.56" into a number (1234.56).
- * Returns null if the string cannot be parsed.
- */
+// Strips symbols and extra formatting to turn a currency string into a valid number
 export function parseCurrency(raw: string): number | null {
   if (raw == null) return null;
 
   const cleaned = raw
     .toString()
     .trim()
-    // Remove currency symbols and common group separators
+    // Removes currency symbols and spaces to leave only digits and decimals
     .replace(/[$€£¥₹]/g, '')
     .replace(/[\s]/g, '')
     .replace(/,/g, '')
-    // Sometimes OCR turns a period into a comma.
-    // Keep only the first decimal point.
+    // Handles OCR errors where multiple periods might be detected
     .replace(/(\..*)\./g, '$1');
 
   if (cleaned === '') return null;
@@ -29,14 +22,11 @@ export function parseCurrency(raw: string): number | null {
   return parsed;
 }
 
-/**
- * Finds the first currency-looking value in a block of OCR text and returns it as a number.
- * Useful for receipts where you want to grab the first total/amount encountered.
- */
+// Scans a block of text to find and return the first sequence that looks like a price
 export function extractFirstCurrency(text: string): number | null {
   if (!text) return null;
 
-  // Match patterns like $1,234.56 or 1,234.56 or 1234
+  // Uses backslashes (\d, \s) so the engine recognizes digits and spaces
   const match = text.match(/[$€£¥₹]?\s*\d{1,3}(?:,\d{3})*(?:\.\d+)?/);
   if (!match) return null;
   return parseCurrency(match[0]);
