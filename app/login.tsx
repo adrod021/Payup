@@ -64,7 +64,7 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* GREEN LOGIN BUTTON */}
+          {/* Green Login Button */}
           <TouchableOpacity 
             activeOpacity={0.8}
             onPress={handleLogin}
@@ -73,7 +73,7 @@ export default function LoginScreen() {
             <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 20, letterSpacing: 1.5 }}>LOGIN</Text>
           </TouchableOpacity>
 
-          {/* GREEN SIGN UP LINK */}
+          {/* Green Sign Up Link */}
           <TouchableOpacity onPress={() => router.push("/signup")} style={{ marginTop: 40 }}>
             <Text style={{ color: '#6b7280', textAlign: 'center', fontSize: 18 }}>
               {"Don't have an account? "} 
