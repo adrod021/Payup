@@ -1,42 +1,44 @@
 import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { auth } from '../firebase'; // Directly connects to the Firebase Auth instance
+import { auth, db } from '../firebase';
 import type { User as AppUser } from '../types';
 
-
- // useAuth Hook - Provides a live listener that automatically updates the user state throughout the app whenever someone logs in, signs up, or logs out.
- 
 export function useAuth() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Set up the subscription to Firebase Authentication
-    // This observer triggers immediately on mount and then every time the auth state changes
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Transform the raw Firebase user object into our custom AppUser format
+        // Fetch custom profile data from firestore
+        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+        const userData = userDoc.data();
+
+        // Map data to our app user format
         const mappedUser: AppUser = {
           id: firebaseUser.uid,
           email: firebaseUser.email || '',
-          // Priority: 1. Firebase profile name, 2. Email prefix, 3. 'Guest' fallback
-          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Guest',
+          // Use 'username' from firestore, fallback to display name or email prefix
+          displayName: userData?.username || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Guest',
+          role: userData?.role || 'user', 
         };
         
         setUser(mappedUser);
       } else {
-        // Clear the user state when no authenticated session is found
         setUser(null);
       }
       
-      // Stop showing the initial loading state once we have a definitive answer from Firebase
       setLoading(false);
     });
 
-    // 2. Memory Management
-    // Unsubscribe from the listener when the component unmounts to prevent memory leaks
     return () => unsubscribe();
   }, []); 
 
-  return { user, loading };
+  return { 
+    user, 
+    loading, 
+    isAdmin: user?.role === 'admin' 
+  };
 }

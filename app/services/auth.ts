@@ -1,40 +1,43 @@
 import { createUserWithEmailAndPassword, signOut as firebaseSignOut, signInWithEmailAndPassword, updateProfile, User } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
 
-// This connects to your specific Firebase setup
-import { auth } from "../firebase";
-
-// This function creates a new user and sets up their display name correctly
-export async function signUp(email: string, password: string, displayName: string): Promise<User> {
+// Create user and a profile doc in firestore
+export async function signUp(email: string, password: string, username: string): Promise<User> {
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   
-  // 1. Save the name to the Firebase profile
+  // Update firebase auth profile name
   await updateProfile(credential.user, {
-    displayName: displayName,
+    displayName: username,
   });
 
-  // 2. Refresh the local user data so the name shows up right away
-  await credential.user.getIdToken(true);
+  // Save user info to firestore
+  // Manually change role to 'admin' in console if needed
+  await setDoc(doc(db, "users", credential.user.uid), {
+    email: email.toLowerCase().trim(),
+    username: username, 
+    role: "user", 
+    createdAt: new Date().toISOString()
+  });
 
-  // 3. Reload the user information to be sure it's updated
+  // Refresh to make sure UI sees the new name
   await credential.user.reload();
 
-  // 4. Return the fully updated user
   return auth.currentUser!; 
 }
 
-// This function logs in an existing user with their email and password
+// Basic login
 export async function login(email: string, password: string): Promise<User> {
   const credential = await signInWithEmailAndPassword(auth, email, password);
   return credential.user; 
 }
 
-// This function signs the user out of the app
+// Sign out
 export async function logout(): Promise<void> {
-  // Uses the Firebase command to end the session
   await firebaseSignOut(auth);
 }
 
-// This simple helper check who is currently logged in
+// Get the current user session
 export function getCurrentUser(): User | null {
   return auth.currentUser;
 }

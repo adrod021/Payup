@@ -6,6 +6,7 @@ export type User = {
     displayName: string;
     email: string;
     phoneNumber?: string;
+    role?: string; // Add this for admin/user permissions
 };
 
 export type BillItem = {

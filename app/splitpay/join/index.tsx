@@ -55,7 +55,7 @@ export default function JoinLobbyScreen() {
     fetchHostInfo();
   }, [sessionId, router]);
 
-  // Listens for real-time updates to the participant list and session status
+  // Real-time listener for the lobby. This triggers the transition when the host starts.
   useEffect(() => {
     if (!sessionId || status !== "waiting") return;
 
@@ -64,7 +64,8 @@ export default function JoinLobbyScreen() {
         const data = docSnap.data();
         setParticipants(data.participants || []);
 
-        // Automatically pushes the user to the next screen when the host starts the process
+        // PROTOTYPE 2: Transition logic. If host starts scanning, move participants to the wait screen.
+        // NOTE: Ensure this path matches your file structure for participant views.
         if (data.status === "scanning" || data.status === "roulette") {
           router.replace("/splitpay/create/waiting" as any);
         }
@@ -74,13 +75,15 @@ export default function JoinLobbyScreen() {
     return () => unsubscribe();
   }, [sessionId, status, router]);
 
-  // Handles the database write to add the current user to the session participants
+  // Handles joining the session. Includes trim/lowercase to match Firebase formatting.
   const handleAcceptInvite = async () => {
     if (!user?.email || !sessionId) return;
     
     setStatus("joining");
     try {
-      await joinSession(sessionId, user.email, inviteId || "");
+      // Normalize email to prevent case-sensitive login bugs
+      const cleanEmail = user.email.toLowerCase().trim();
+      await joinSession(sessionId, cleanEmail, inviteId || "");
       setStatus("waiting");
     } catch (error) {
       console.error("Join error:", error);
@@ -191,6 +194,23 @@ export default function JoinLobbyScreen() {
                      {participants.length} {participants.length === 1 ? 'Person' : 'People'} Joined
                    </Text>
                 </View>
+
+                {/* PROTOTYPE 2: Manual Bypass button to skip the loading lobby */}
+                <TouchableOpacity 
+                  onPress={() => router.push('/billing' as any)} 
+                  style={{ 
+                    marginTop: 20, 
+                    padding: 12, 
+                    borderWidth: 1, 
+                    borderColor: '#d1d5db', 
+                    borderRadius: 12, 
+                    borderStyle: 'dashed' 
+                  }}
+                >
+                  <Text style={{ color: "#6b7280", textAlign: 'center', fontWeight: "bold" }}>
+                    Skip to Manual Entry (Bypass)
+                  </Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 24, alignItems: 'center' }}>
                   <Text style={{ color: "#ef4444", fontWeight: "bold" }}>Leave Session</Text>

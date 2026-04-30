@@ -1,4 +1,4 @@
-//account screen for user profile management, logout, and account settings. It uses the useAuth hook to access user information and the logout function to handle user sign-out. 
+//account screen for user profile management, logout, and account settings. 
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
@@ -12,7 +12,7 @@ export default function AccountScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
-  // Triggers the Firebase logout service and redirects to the login route
+  // Signs out and sends user back to login
   const handleLogout = async () => {
     try {
       await logout();
@@ -22,11 +22,11 @@ export default function AccountScreen() {
     }
   };
 
-  // Reusable component for displaying labeled profile information with an icon
-  const ProfileRow = ({ label, value, icon }: { label: string; value: string; icon: any }) => (
+  // Reusable row for profile info
+  const ProfileRow = ({ label, value, icon, color = "#00966d" }: { label: string; value: string; icon: any, color?: string }) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
       <View style={{ backgroundColor: '#f3f4f6', borderRadius: 12, marginRight: 16, padding: 10 }}>
-        <Ionicons name={icon} size={20} color="#00966d" />
+        <Ionicons name={icon} size={20} color={color} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 12, fontWeight: '800', color: '#9ca3af', textTransform: 'uppercase' }}>
@@ -51,7 +51,7 @@ export default function AccountScreen() {
             </Text>
           </View>
 
-          {/* Profile information card showing current user details from useAuth */}
+          {/* Profile card with user data from useAuth hook */}
           <View style={{ 
             backgroundColor: '#ffffff', 
             borderRadius: 24, 
@@ -70,7 +70,7 @@ export default function AccountScreen() {
             </Text>
             
             <ProfileRow 
-              label="Display Name" 
+              label="Username" 
               value={user?.displayName || "New User"} 
               icon="person-outline" 
             />
@@ -80,13 +80,19 @@ export default function AccountScreen() {
               icon="mail-outline" 
             />
             <ProfileRow 
+              label="Account Type" 
+              value={user?.role === 'admin' ? "Administrator" : "Standard User"} 
+              icon="shield-checkmark-outline" 
+              color={user?.role === 'admin' ? "#2563eb" : "#00966d"}
+            />
+            <ProfileRow 
               label="Phone Number" 
               value={"Add phone number"} 
               icon="call-outline" 
             />
           </View>
 
-          {/* Account action section for password management and session control */}
+          {/* Action buttons */}
           <View style={{ width: '100%' }}>
             <TouchableOpacity
               activeOpacity={0.7}

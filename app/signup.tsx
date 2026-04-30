@@ -7,14 +7,14 @@ import { signUp } from "./services/auth";
 export default function SignUpScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState(""); // Changed from displayName
   const [loading, setLoading] = useState(false); 
   const router = useRouter();
 
-  // This function handles creating a new user account
+  // Handle creating a new account
   const handleSignUp = async () => {
-    // Check if any fields are empty before starting
-    if (!displayName.trim() || !email.trim() || !password.trim()) {
+    // Basic validation
+    if (!username.trim() || !email.trim() || !password.trim()) {
       Alert.alert("Error", "Please fill in all fields.");
       return;
     }
@@ -23,15 +23,13 @@ export default function SignUpScreen() {
 
     try {
       // Send the info to our auth service
-      await signUp(email, password, displayName);
+      await signUp(email, password, username);
       
       Alert.alert("Success", "Welcome to PayUp!");
-      // Send the user to the main app tabs
       router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Sign Up Error", error.message);
     } finally {
-      // Turn off the loading spinner
       setLoading(false); 
     }
   };
@@ -51,13 +49,13 @@ export default function SignUpScreen() {
           </View>
           
           <View style={{ width: '100%' }}>
-            {/* Name input area */}
+            {/* Username input area */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 16 }}>Display Name</Text>
+              <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 16 }}>Username</Text>
               <TextInput
-                placeholder="Your Name"
-                value={displayName}
-                onChangeText={setDisplayName}
+                placeholder="Pick a username"
+                value={username}
+                onChangeText={setUsername}
                 placeholderTextColor="#9ca3af"
                 style={{ borderWidth: 2, borderColor: '#e5e7eb', padding: 18, borderRadius: 16, color: 'black', backgroundColor: '#f9fafb', fontSize: 18 }}
               />
@@ -91,7 +89,7 @@ export default function SignUpScreen() {
             </View>
           </View>
 
-          {/* Button to submit the form */}
+          {/* Submit button */}
           <TouchableOpacity 
             activeOpacity={0.8}
             onPress={handleSignUp}
@@ -117,7 +115,7 @@ export default function SignUpScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Link to go back to the Login screen */}
+          {/* Back to Login */}
           <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 32 }}>
             <Text style={{ color: '#6b7280', textAlign: 'center', fontSize: 16 }}>
               {"Already have an account? "} 
