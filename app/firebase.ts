@@ -7,13 +7,14 @@ import {
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
+// Replace your old firebaseConfig with this:
 const firebaseConfig = {
-  apiKey: "AIzaSyA_VMe_qtKHjF4x0f5HCIultvkVZMgfyBM",
-  authDomain: "payup-app-cse4550.firebaseapp.com",
-  projectId: "payup-app-cse4550",
-  storageBucket: "payup-app-cse4550.firebasestorage.app",
-  messagingSenderId: "131813404781",
-  appId: "1:131813404781:web:6519b2587741a4b3cfcf64"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
