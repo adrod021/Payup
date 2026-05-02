@@ -1,105 +1,57 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { and, collection, deleteDoc, doc, onSnapshot, or, query, updateDoc, where } from "firebase/firestore";
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-// Firebase database tools
-import { collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../firebase";
-
-// Custom logic for auth, invitations, and SPLITTING
 import { useAuth } from "../hooks/useAuth";
 import { createSessionAndInvite, joinSession } from "../services/invite";
-import { equalSplit } from "../utils/split";
 
 export default function HomeScreen() {
-  // UI State
   const [showOptions, setShowOptions] = useState(false); 
   const [showInvite, setShowInvite] = useState(false);   
-  const [showHostOptions, setShowHostOptions] = useState(false); 
   const [isConnecting, setIsConnecting] = useState(false); 
+  const [showSplitMethods, setShowSplitMethods] = useState(false);
 
-  // --- BYPASS & MANUAL STATES ---
-  const [showManualEntry, setShowManualEntry] = useState(false);
-  const [manualItemName, setManualItemName] = useState("");
-  const [manualItemPrice, setManualItemPrice] = useState("");
-
-  // Hosting State
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [participants, setParticipants] = useState<string[]>([]); 
-  const [isCreating, setIsCreating] = useState(false); 
-  const [isRoomCreated, setIsRoomCreated] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null); 
-  const [joinedCount, setJoinedCount] = useState(1); 
-  
-  // Joining State
   const [invites, setInvites] = useState<any[]>([]);
   const [isLoadingInvites, setIsLoadingInvites] = useState(true);
 
+  const [inviteInput, setInviteInput] = useState(""); 
+  const [isCreating, setIsCreating] = useState(false); 
+  const [isRoomCreated, setIsRoomCreated] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null); 
+  const [sessionHostId, setSessionHostId] = useState<string | null>(null);
+  const [joinedCount, setJoinedCount] = useState(1); 
+  
   const router = useRouter();
   const { user } = useAuth(); 
-  const MAX_PARTICIPANTS = 10;
 
-  // Listen for incoming invites (Real-time)
-  useEffect(() => {
-    if (!user?.email) return;
-    const cleanUserEmail = user.email.trim().toLowerCase();
-    const q = query(
-      collection(db, "invites"),
-      where("invitedEmail", "==", cleanUserEmail),
-      where("status", "==", "pending")
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const inviteList = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      }));
-      setInvites(inviteList);
-      setIsLoadingInvites(false);
-    });
-
-    return () => unsubscribe();
-  }, [user?.email]);
-
-  // Watch session for participant joins
-  useEffect(() => {
-    if (!sessionId) return;
-    const unsubscribe = onSnapshot(doc(db, "sessions", sessionId), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.participants) setJoinedCount(data.participants.length);
-      }
-    });
-    return () => unsubscribe();
-  }, [sessionId]);
-
-  const handleBack = () => {
-    if (showManualEntry) return setShowManualEntry(false);
-    if (showHostOptions) {
-      setShowHostOptions(false);
-      setShowInvite(true);
-    } else if (showInvite) {
+  const handleBack = useCallback(() => {
+    if (showSplitMethods) return setShowSplitMethods(false);
+    if (isConnecting) return setIsConnecting(false);
+    if (showInvite) {
       setShowInvite(false);
       setIsRoomCreated(false);
       setSessionId(null);
-      setParticipants([]);
-    } else {
-      setShowOptions(false);
+      return;
     }
-  };
+    setShowOptions(false);
+  }, [isConnecting, showInvite, showSplitMethods]);
 
-  const handleCreateRoom = async () => {
-    if (!user?.email) return;
+  const handleAddParticipant = async () => {
+    if (!inviteInput || !user || isCreating) return;
+    const newParticipant = inviteInput.trim();
     setIsCreating(true);
     try {
-      const newId = await createSessionAndInvite(user.email, participants, user.displayName || "Host");
-      setSessionId(newId);
-      setIsRoomCreated(true); 
+      const id = await createSessionAndInvite(user, [newParticipant], sessionId || undefined);
+      if (!sessionId) {
+        setSessionId(id);
+        setSessionHostId(user.uid);
+      }
+      setInviteInput("");
     } catch {
-      // Removed the _err variable to fix the ESLint warning
-      Alert.alert("Error", "Failed to create session.");
+      Alert.alert("Error", "Could not send invite.");
     } finally {
       setIsCreating(false);
     }
@@ -107,188 +59,186 @@ export default function HomeScreen() {
 
   const handleAcceptInvite = async (invite: any) => {
     try {
-      await joinSession(invite.sessionId, user?.email || "", invite.id);
-      router.push({
-        pathname: '/splitpay/join',
-        params: { sessionId: invite.sessionId, inviteId: invite.id }
-      });
+      const currentId = user?.email || user?.phoneNumber || user?.uid || "User";
+      await joinSession(invite.sessionId, currentId, invite.id);
       setIsConnecting(false);
+      setSessionId(invite.sessionId);
+      setShowInvite(true);
+      setIsRoomCreated(true);
     } catch {
-      // Removed the _err variable to fix the ESLint warning
       Alert.alert("Error", "Could not join session.");
     }
   };
 
-  const handleDeclineInvite = async (inviteId: string) => {
-    try {
-      await deleteDoc(doc(db, "invites", inviteId));
-    } catch (err) {
-      // Keep this one if you want to see what went wrong in the console
-      console.error("Failed to decline invite:", err);
+  const startMode = async (mode: 'itemized' | 'roulette', method?: 'scan' | 'manual') => {
+    if (!sessionId) return;
+    await updateDoc(doc(db, "sessions", sessionId), { status: mode });
+    
+    if (mode === 'itemized') {
+      // Routing to manual_split instead of billing
+      router.push({ pathname: '/manual_split', params: { sessionId, method } });
+    } else {
+      router.push({ pathname: '/splitpay/create/roulette_spin', params: { sessionId } });
     }
   };
 
-  const addParticipant = () => {
-    if (participants.length >= MAX_PARTICIPANTS) return Alert.alert("Limit Reached", "Max 10 people.");
-    const cleanEmail = inviteEmail.trim().toLowerCase();
-    if (cleanEmail && cleanEmail.includes("@")) {
-      if (cleanEmail === user?.email?.toLowerCase()) return Alert.alert("Error", "You are the host!");
-      setParticipants([...participants, cleanEmail]);
-      setInviteEmail(""); 
-    }
-  };
+  useEffect(() => {
+    if (!user) return;
+    const email = user.email?.toLowerCase().trim() || "no-email";
+    const phone = user.phoneNumber || "no-phone";
+    const qInvites = query(collection(db, "invites"), and(where("status", "==", "pending"), or(where("invitedEmail", "==", email), where("invitedPhone", "==", phone))));
+    const unsubInvites = onSnapshot(qInvites, (snapshot) => { 
+      setInvites(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))); 
+      setIsLoadingInvites(false); 
+    });
+    return () => unsubInvites();
+  }, [user]);
 
-  const handleManualSplit = () => {
-    const price = parseFloat(manualItemPrice);
-    if (isNaN(price) || price <= 0) return Alert.alert("Invalid Price", "Please enter a valid amount.");
+  useEffect(() => {
+    if (!sessionId) return;
+    const unsub = onSnapshot(doc(db, "sessions", sessionId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setJoinedCount(data.participants?.length || 1);
+        setSessionHostId(data.hostId);
 
-    const everyone = [user?.email || "Host", ...participants];
-    try {
-      const results = equalSplit(price, everyone);
-      console.log("Manual Split Calculated:", results);
-      router.push({
-        pathname: "/billing",
-        params: { method: "manual", total: manualItemPrice, itemName: manualItemName }
-      });
-    } catch {
-      // Removed the _err variable to fix the ESLint warning
-      Alert.alert("Split Error", "Could not calculate the split.");
-    }
-  };
+        const isHost = user?.uid === data.hostId;
+        if (!isHost) {
+          if (data.status === "itemized") {
+            router.push({ pathname: '/manual_split', params: { sessionId } });
+          } else if (data.status === "roulette") {
+            router.push({ pathname: '/splitpay/create/roulette_spin', params: { sessionId } });
+          }
+        }
+      } else {
+        handleBack();
+      }
+    });
+    return () => unsub();
+  }, [sessionId, user, router, handleBack]);
 
-  if (isConnecting) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
-        <View style={{ flex: 1, padding: 32, justifyContent: 'center' }}>
-          <TouchableOpacity onPress={() => setIsConnecting(false)} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-            <Ionicons name="arrow-back" size={24} color="#2563eb" />
-            <Text style={{ color: '#2563eb', fontWeight: 'bold', fontSize: 18, marginLeft: 8 }}>Back</Text>
-          </TouchableOpacity>
-
-          <View style={{ backgroundColor: '#f3f4f6', borderRadius: 40, padding: 32, aspectRatio: 1, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#e5e7eb' }}>
-            <Text style={{ fontSize: 22, fontWeight: '800', marginBottom: 24, textAlign: 'center', color: '#1f2937' }}>
-              {isLoadingInvites ? "Checking for Invites" : invites.length > 0 ? "Invites Found!" : "No Invites Found"}
-            </Text>
-
-            {isLoadingInvites ? (
-              <ActivityIndicator size="large" color="#2563eb" />
-            ) : invites.length === 0 ? (
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="mail-unread-outline" size={64} color="#9ca3af" />
-                <TouchableOpacity 
-                  onPress={() => setShowManualEntry(true)} 
-                  style={{ marginTop: 24, backgroundColor: '#ef4444', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 16 }}
-                >
-                  <Text style={{ color: 'white', fontWeight: 'bold' }}>Bypass & Manual Enter</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <ScrollView style={{ width: '100%' }}>
-                {invites.map((invite) => (
-                  <View key={invite.id} style={{ backgroundColor: 'white', padding: 16, borderRadius: 20, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Text style={{ fontWeight: '700', fontSize: 15, flex: 1 }}>{`${invite.hostName}'s Group`}</Text>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <TouchableOpacity onPress={() => handleAcceptInvite(invite)} style={{ backgroundColor: '#00966d', padding: 10, borderRadius: 12 }}>
-                        <Ionicons name="checkmark" size={20} color="white" />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDeclineInvite(invite.id)} style={{ backgroundColor: '#ef4444', padding: 10, borderRadius: 12 }}>
-                        <Ionicons name="close" size={20} color="white" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        </View>
-
-        <Modal visible={showManualEntry} animationType="slide">
-            <SafeAreaView style={{ flex: 1, padding: 32 }}>
-               <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20 }}>Manual Bill Entry</Text>
-               <TextInput placeholder="Item Name (e.g. Pizza)" value={manualItemName} onChangeText={setManualItemName} style={{ backgroundColor: '#f3f4f6', padding: 16, borderRadius: 12, marginBottom: 12 }} />
-               <TextInput placeholder="Total Price (0.00)" keyboardType="decimal-pad" value={manualItemPrice} onChangeText={setManualItemPrice} style={{ backgroundColor: '#f3f4f6', padding: 16, borderRadius: 12, marginBottom: 24 }} />
-               <TouchableOpacity onPress={handleManualSplit} style={{ backgroundColor: '#00966d', padding: 20, borderRadius: 16 }}>
-                 <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>SPLIT NOW</Text>
-               </TouchableOpacity>
-               <TouchableOpacity onPress={() => setShowManualEntry(false)} style={{ marginTop: 20 }}><Text style={{ color: '#ef4444', textAlign: 'center' }}>Cancel</Text></TouchableOpacity>
-            </SafeAreaView>
-         </Modal>
-      </SafeAreaView>
-    );
-  }
+  const isHost = !sessionId || user?.uid === sessionHostId;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: 40 }}>
-          {!showOptions ? (
-            <View style={{ alignItems: 'center', marginTop: 20 }}>
-              <Text style={{ fontSize: 72, fontWeight: '900' }}>PayUp</Text>
-              <TouchableOpacity onPress={() => setShowOptions(true)} style={{ backgroundColor: '#00966d', paddingVertical: 40, borderRadius: 24, width: '100%', marginTop: 40 }}>
-                <Text style={{ color: 'white', textAlign: 'center', fontWeight: '900', fontSize: 36 }}>SplitPay</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={{ width: '100%' }}>
-              <TouchableOpacity onPress={handleBack} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-                <Ionicons name="arrow-back" size={24} color="#00966d" />
-                <Text style={{ color: '#00966d', fontWeight: 'bold', fontSize: 18, marginLeft: 8 }}>Back</Text>
-              </TouchableOpacity>
+      <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: 20 }}>
+        
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-start', marginBottom: 20 }}>
+          {(showOptions || showInvite || isConnecting) && (
+            <TouchableOpacity onPress={handleBack}><Ionicons name="arrow-back" size={24} color="#00966d" /></TouchableOpacity>
+          )}
+        </View>
 
-              <View style={{ backgroundColor: '#f3f4f6', padding: 24, borderRadius: 24 }}>
-                {!showInvite && !showHostOptions && (
-                  <>
-                    <TouchableOpacity onPress={() => setShowInvite(true)} style={{ backgroundColor: '#00966d', padding: 20, borderRadius: 16, marginBottom: 12 }}>
-                      <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>Create Group (Host)</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setIsConnecting(true)} style={{ backgroundColor: '#2563eb', padding: 20, borderRadius: 16 }}>
-                      <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>Join Group (Participant)</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-
-                {showInvite && !showHostOptions && (
-                  <View>
-                    <Text style={{ color: '#6b7280', textAlign: 'center', marginBottom: 10 }}>
-                      {isRoomCreated ? `${joinedCount - 1} / ${participants.length} Friends Joined` : "Add friends to start"}
-                    </Text>
-                    {!isRoomCreated && (
-                      <View style={{ flexDirection: 'row', marginBottom: 20 }}>
-                        <TextInput placeholder="Invite by email" value={inviteEmail} onChangeText={setInviteEmail} autoCapitalize="none" style={{ flex: 1, backgroundColor: 'white', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#d1d5db' }} />
-                        <TouchableOpacity onPress={addParticipant} style={{ backgroundColor: '#00966d', padding: 12, borderRadius: 12, marginLeft: 8 }}><Ionicons name="mail-outline" size={24} color="white" /></TouchableOpacity>
-                      </View>
-                    )}
-                    <View style={{ marginBottom: 20 }}>
-                      {participants.map((email, i) => (
-                        <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 10, backgroundColor: 'white', borderRadius: 8, marginBottom: 8 }}>
-                          <Text>{email}</Text>
-                          {!isRoomCreated && <TouchableOpacity onPress={() => setParticipants(participants.filter((_, idx) => idx !== i))}><Ionicons name="trash-outline" size={20} color="#ef4444" /></TouchableOpacity>}
+        {isConnecting ? (
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 24, fontWeight: '900', textAlign: 'center', marginBottom: 20 }}>Waiting for Invites</Text>
+            <View style={{ width: '100%', backgroundColor: '#f3f4f6', borderRadius: 40, padding: 24, minHeight: 300, justifyContent: invites.length === 0 ? 'center' : 'flex-start' }}>
+              {isLoadingInvites ? <ActivityIndicator color="#00966d" size="large" /> : (
+                invites.length > 0 ? (
+                  <ScrollView>
+                    {invites.map(i => (
+                      <View key={i.id} style={{ backgroundColor: 'white', padding: 16, borderRadius: 20, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ fontWeight: '800', flex: 1 }}>{i.hostName}&apos;s Room</Text>
+                        <View style={{ flexDirection: 'row' }}>
+                          <TouchableOpacity onPress={() => handleAcceptInvite(i)} style={{ marginRight: 15 }}><Ionicons name="checkmark-circle" size={32} color="#00966d" /></TouchableOpacity>
+                          <TouchableOpacity onPress={() => deleteDoc(doc(db, "invites", i.id))}><Ionicons name="close-circle" size={32} color="#ef4444" /></TouchableOpacity>
                         </View>
-                      ))}
-                    </View>
-                    <TouchableOpacity onPress={isRoomCreated ? () => setShowHostOptions(true) : handleCreateRoom} disabled={participants.length === 0 || isCreating} style={{ backgroundColor: (participants.length > 0 || isRoomCreated) ? '#00966d' : '#9ca3af', padding: 20, borderRadius: 16 }}>
-                      <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>{isCreating ? "CREATING..." : isRoomCreated ? "START SESSION" : "SEND INVITES"}</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <Text style={{ color: '#6b7280', textAlign: 'center', fontWeight: '600', fontSize: 16, paddingHorizontal: 10 }}>
+                    No Invites Yet!
+                  </Text>
+                )
+              )}
+            </View>
+          </View>
+        ) : !showOptions ? (
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 72, fontWeight: '900', textAlign: 'center', marginBottom: 40 }}>PayUp</Text>
+            <TouchableOpacity onPress={() => setShowOptions(true)} style={{ backgroundColor: '#00966d', paddingVertical: 40, borderRadius: 24 }}>
+              <Text style={{ color: 'white', textAlign: 'center', fontWeight: '900', fontSize: 36 }}>SplitPay</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            {!showInvite ? (
+              <View>
+                <TouchableOpacity onPress={() => setShowInvite(true)} style={{ backgroundColor: '#00966d', padding: 25, borderRadius: 20, marginBottom: 15 }}>
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20, textAlign: 'center' }}>Host a Session</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setIsConnecting(true)} style={{ backgroundColor: '#2563eb', padding: 25, borderRadius: 20 }}>
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20, textAlign: 'center' }}>Join a Session</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={{ width: '100%', alignItems: 'center' }}>
+                <Text style={{ fontSize: 20, fontWeight: '800', marginBottom: 10 }}>
+                   {sessionId ? `Joined: ${joinedCount}` : "Invite via Email/Phone"}
+                </Text>
 
-                {showHostOptions && (
+                {isRoomCreated ? (
+                  isHost ? (
+                    <View style={{ width: '100%', marginTop: 20 }}>
+                      {!showSplitMethods ? (
+                        <>
+                          <TouchableOpacity onPress={() => setShowSplitMethods(true)} style={{ backgroundColor: '#00966d', padding: 20, borderRadius: 16, marginBottom: 10 }}>
+                            <Text style={{ color: 'white', fontWeight: '900', textAlign: 'center' }}>ITEMIZED SPLIT</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => startMode('roulette')} style={{ backgroundColor: '#2563eb', padding: 20, borderRadius: 16 }}>
+                            <Text style={{ color: 'white', fontWeight: '900', textAlign: 'center' }}>ROULETTE SPIN</Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : (
+                        <View style={{ width: '100%' }}>
+                          <TouchableOpacity onPress={() => startMode('itemized', 'scan')} style={{ backgroundColor: '#00966d', padding: 20, borderRadius: 16, marginBottom: 10 }}>
+                            <Text style={{ color: 'white', textAlign: 'center', fontWeight: '900' }}>SCAN RECEIPT (OCR)</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => startMode('itemized', 'manual')} style={{ backgroundColor: '#2563eb', padding: 20, borderRadius: 16 }}>
+                            <Text style={{ color: 'white', textAlign: 'center', fontWeight: '900' }}>MANUALLY ADD ITEMS</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={{ marginTop: 40, alignItems: 'center' }}>
+                      <ActivityIndicator color="#00966d" size="large" />
+                      <Text style={{ marginTop: 20, fontWeight: '700', color: '#6b7280', textAlign: 'center' }}>
+                        Joined! Waiting for host to choose mode...
+                      </Text>
+                    </View>
+                  )
+                ) : (
                   <>
-                    <TouchableOpacity onPress={() => router.push({ pathname: '/splitpay/create/scan', params: { sessionId } })} style={{ borderWidth: 2, borderColor: '#00966d', padding: 18, borderRadius: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'center' }}>
-                      <Ionicons name="receipt" size={20} color="#00966d" style={{ marginRight: 10 }} />
-                      <Text style={{ color: '#00966d', fontWeight: 'bold' }}>Itemized (OCR)</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowManualEntry(true)} style={{ backgroundColor: '#ef4444', padding: 18, borderRadius: 16, flexDirection: 'row', justifyContent: 'center' }}>
-                      <Ionicons name="create-outline" size={20} color="white" style={{ marginRight: 10 }} />
-                      <Text style={{ color: 'white', fontWeight: 'bold' }}>Bypass OCR (Manual)</Text>
+                    <View style={{ flexDirection: 'row', marginBottom: 20 }}>
+                      <TextInput 
+                        placeholder="Email or Phone" 
+                        value={inviteInput} 
+                        onChangeText={setInviteInput} 
+                        style={{ flex: 1, backgroundColor: '#f3f4f6', padding: 15, borderRadius: 15 }} 
+                      />
+                      <TouchableOpacity 
+                        onPress={handleAddParticipant} 
+                        style={{ backgroundColor: '#00966d', padding: 15, borderRadius: 15, marginLeft: 10 }}
+                      >
+                        <Ionicons name="add" size={24} color="white" />
+                      </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity 
+                      onPress={() => setIsRoomCreated(true)} 
+                      disabled={!sessionId} 
+                      style={{ backgroundColor: sessionId ? '#00966d' : '#9ca3af', padding: 20, borderRadius: 16, width: '100%' }}
+                    >
+                      <Text style={{ color: 'white', fontWeight: '900', textAlign: 'center' }}>START SESSION</Text>
                     </TouchableOpacity>
                   </>
                 )}
               </View>
-            </View>
-          )}
-        </View>
-      </ScrollView>
+            )}
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 }

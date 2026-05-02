@@ -1,19 +1,19 @@
 // Shared types used across UI and backend integration
-// These act as the "contracts" the UI expects from the data layer
-
 export type User = {
-    id: string;
-    displayName: string;
-    email: string;
-    phoneNumber?: string;
-    role?: string; // Add this for admin/user permissions
+    uid: string;
+    username: string; // Changed from displayName to match your Firestore schema
+    displayName?: string; // Kept as optional for Firebase Auth compatibility
+    email: string | null; // Nullable if signing up via phone
+    phoneNumber?: string | null; // Nullable if signing up via email
+    role?: string; 
+    signupMethod?: 'email' | 'phone';
 };
 
 export type BillItem = {
     id: string;
     name: string;
     quantity: number;
-    price: number; // in dollars
+    price: number; 
 };
 
 export type OCRResult = {

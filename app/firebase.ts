@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Your environment variables for Prototype 2
+// environment variables for Prototype 2
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -32,3 +32,4 @@ const db = getFirestore(app);
 
 // Explicitly export for your services (invite.ts) and components (index.tsx)
 export { app, auth, db };
+

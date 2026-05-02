@@ -8,8 +8,8 @@ import type { BillSession, OCRResult, User } from '@/app/types';
 
 // Basic user profile for testing authentication-dependent UI
 export const mockUser: User = {
-  id: 'user_1',
-  displayName: 'Alex',
+  uid: 'user_1',
+  username: 'Alex',
   email: 'alex@example.com',
 };
 
@@ -28,8 +28,8 @@ export const mockOCRResult: OCRResult = {
 // Standard session state to test the initial "Pending" status of a bill
 export const mockBillSession: BillSession = {
   id: 'session_1',
-  hostId: mockUser.id,
-  memberIds: [mockUser.id],
+  hostId: mockUser.uid,
+  memberIds: [mockUser.uid],
   createdAt: new Date().toISOString(),
   status: 'pending',
   ocrResult: mockOCRResult,

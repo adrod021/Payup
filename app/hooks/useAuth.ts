@@ -9,19 +9,20 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // Fetch custom profile data from firestore
-        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+        const userRef = doc(db, "users", firebaseUser.uid);
+        const userDoc = await getDoc(userRef);
         const userData = userDoc.data();
 
         // Map data to our app user format
         const mappedUser: AppUser = {
-          id: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          // Use 'username' from firestore, fallback to display name or email prefix
-          displayName: userData?.username || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Guest',
+          uid: firebaseUser.uid, // Match types.ts update
+          email: userData?.email || firebaseUser.email || null,
+          username: userData?.username || firebaseUser.displayName || 'Guest',
+          phoneNumber: userData?.phoneNumber || null,
+          signupMethod: userData?.signupMethod || (firebaseUser.email ? 'email' : 'phone'),
           role: userData?.role || 'user', 
         };
         
