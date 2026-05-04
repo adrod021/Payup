@@ -7,6 +7,9 @@ import {
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
+//add the ocr pull
+
+
 const firebaseConfig = {
   apiKey: "AIzaSyA_VMe_qtKHjF4x0f5HCIultvkVZMgfyBM",
   authDomain: "payup-app-cse4550.firebaseapp.com",
@@ -27,5 +30,5 @@ const auth = initializeAuth(app, {
 
 const db = getFirestore(app);
 
-export { app, auth, db };
+export { app, auth, db, storage };
 
