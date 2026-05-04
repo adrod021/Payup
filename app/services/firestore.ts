@@ -2,11 +2,14 @@ import type { BillSession, Invite, User } from '@/app/types';
 import { addDoc, collection, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
-// Saves a new user profile to the "users" collection using their unique ID
+// Saves a new user profile using their unique Firebase UID
 export async function createUser(user: User): Promise<void> {
-  await setDoc(doc(db, "users", user.id), user);
-}
+  // Use .uid to ensure the document ID matches the Auth ID
+  const userId = user.uid || (user as any).uid; 
+  if (!userId) throw new Error("User ID is required to create a profile.");
 
+  await setDoc(doc(db, "users", userId), user);
+}
 // Retrieves a specific user's data from the database based on their ID
 export async function getUser(userId: string): Promise<User> {
   const snap = await getDoc(doc(db, "users", userId));

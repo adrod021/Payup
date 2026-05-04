@@ -1,38 +1,38 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { signUp } from "./services/auth";
 
 export default function SignUpScreen() {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [loading, setLoading] = useState(false); 
   const router = useRouter();
 
-  // This function handles creating a new user account
   const handleSignUp = async () => {
-    // Check if any fields are empty before starting
-    if (!displayName.trim() || !email.trim() || !password.trim()) {
+    if (!identifier.trim() || !username.trim() || !password.trim()) {
       Alert.alert("Error", "Please fill in all fields.");
       return;
     }
 
-    setLoading(true); 
+    // Logic to separate email and phone number from the single identifier input
+    const isEmail = identifier.includes("@");
+    
+    // If it's an email, use it. If it's a phone, create a placeholder email for Firebase Auth.
+    const emailToAuth = isEmail 
+      ? identifier.trim().toLowerCase() 
+      : `${identifier.trim()}@payup-placeholder.com`;
+    
+    // If it's not an email, we treat it as the phone number.
+    const phoneNumber = isEmail ? "" : identifier.trim();
 
     try {
-      // Send the info to our auth service
-      await signUp(email, password, displayName);
-      
-      Alert.alert("Success", "Welcome to PayUp!");
-      // Send the user to the main app tabs
+      // Pass all 4 arguments to the updated signUp service
+      await signUp(emailToAuth, password, username, phoneNumber);
       router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Sign Up Error", error.message);
-    } finally {
-      // Turn off the loading spinner
-      setLoading(false); 
     }
   };
 
@@ -41,85 +41,62 @@ export default function SignUpScreen() {
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} style={{ backgroundColor: 'white' }}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingVertical: 40 }}>
           
-          <View style={{ alignItems: 'center', marginBottom: 40, width: '100%' }}>
-            <Text style={{ fontSize: 72, fontWeight: 'bold', color: 'black', textAlign: 'center', letterSpacing: -1 }}>
+          <View style={{ alignItems: 'center', marginBottom: 48, width: '100%' }}>
+            <Text style={{ fontSize: 72, fontWeight: '900', color: 'black', textAlign: 'center' }}>
               PayUp
             </Text>
-            <Text style={{ fontSize: 28, fontWeight: '600', color: '#4b5563', marginTop: 4 }}>
-              Sign Up
-            </Text>
+            <Text style={{ fontSize: 32, fontWeight: '700', color: '#1f2937', marginTop: 4 }}>Sign Up</Text>
           </View>
-          
+
           <View style={{ width: '100%' }}>
-            {/* Name input area */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 16 }}>Display Name</Text>
-              <TextInput
-                placeholder="Your Name"
-                value={displayName}
-                onChangeText={setDisplayName}
-                placeholderTextColor="#9ca3af"
-                style={{ borderWidth: 2, borderColor: '#e5e7eb', padding: 18, borderRadius: 16, color: 'black', backgroundColor: '#f9fafb', fontSize: 18 }}
-              />
-            </View>
-
-            {/* Email input area */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 16 }}>Email</Text>
-              <TextInput
-                placeholder="email@example.com"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                placeholderTextColor="#9ca3af"
-                style={{ borderWidth: 2, borderColor: '#e5e7eb', padding: 18, borderRadius: 16, color: 'black', backgroundColor: '#f9fafb', fontSize: 18 }}
-              />
-            </View>
-
-            {/* Password input area */}
             <View style={{ marginBottom: 24 }}>
-              <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 16 }}>Password</Text>
+              <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 18 }}>Username</Text>
+              <TextInput
+                placeholder="Display Name"
+                value={username}
+                onChangeText={setUsername}
+                placeholderTextColor="#9ca3af"
+                style={{ borderWidth: 2, borderColor: '#e5e7eb', padding: 20, borderRadius: 16, color: 'black', backgroundColor: '#f9fafb', fontSize: 18 }}
+              />
+            </View>
+
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 18 }}>Email or Phone</Text>
+              <TextInput
+                placeholder="Email or Phone Number"
+                value={identifier}
+                onChangeText={setIdentifier}
+                autoCapitalize="none"
+                // Changed to 'default' so users can type letters (email) or numbers (phone)
+                keyboardType="default" 
+                placeholderTextColor="#9ca3af"
+                style={{ borderWidth: 2, borderColor: '#e5e7eb', padding: 20, borderRadius: 16, color: 'black', backgroundColor: '#f9fafb', fontSize: 18 }}
+              />
+            </View>
+
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 18 }}>Password</Text>
               <TextInput
                 placeholder="••••••••"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
                 placeholderTextColor="#9ca3af"
-                style={{ borderWidth: 2, borderColor: '#e5e7eb', padding: 18, borderRadius: 16, color: 'black', backgroundColor: '#f9fafb', fontSize: 18 }}
+                style={{ borderWidth: 2, borderColor: '#e5e7eb', padding: 20, borderRadius: 16, color: 'black', backgroundColor: '#f9fafb', fontSize: 18 }}
               />
             </View>
           </View>
 
-          {/* Button to submit the form */}
           <TouchableOpacity 
-            activeOpacity={0.8}
             onPress={handleSignUp}
-            disabled={loading} 
-            style={{ 
-              backgroundColor: loading ? '#057a5b' : '#00966d', 
-              padding: 20, 
-              borderRadius: 16, 
-              width: '100%', 
-              elevation: 4, 
-              shadowColor: '#000', 
-              shadowOffset: { width: 0, height: 2 }, 
-              shadowOpacity: 0.1, 
-              shadowRadius: 4 
-            }}
+            activeOpacity={0.8}
+            style={{ backgroundColor: '#00966d', padding: 20, borderRadius: 16, marginTop: 16, width: '100%', elevation: 5 }}
           >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 18, letterSpacing: 1 }}>
-                CREATE ACCOUNT
-              </Text>
-            )}
+            <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 20, letterSpacing: 1.5 }}>CREATE ACCOUNT</Text>
           </TouchableOpacity>
 
-          {/* Link to go back to the Login screen */}
-          <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 32 }}>
-            <Text style={{ color: '#6b7280', textAlign: 'center', fontSize: 16 }}>
+          <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 40 }}>
+            <Text style={{ color: '#6b7280', textAlign: 'center', fontSize: 18 }}>
               {"Already have an account? "} 
               <Text style={{ color: '#00966d', fontWeight: 'bold' }}>Login</Text>
             </Text>

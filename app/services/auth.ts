@@ -1,40 +1,66 @@
-import { createUserWithEmailAndPassword, signOut as firebaseSignOut, signInWithEmailAndPassword, updateProfile, User } from "firebase/auth";
+// services/auth.ts
+import {
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  signInWithEmailAndPassword,
+  updateProfile,
+  User
+} from "firebase/auth";
+import { collection, doc, getDocs, query, setDoc, where } from "firebase/firestore";
+import { auth, db } from "../firebase";
 
-// This connects to your specific Firebase setup
-import { auth } from "../firebase";
+export async function signUp(
+  email: string, 
+  password: string, 
+  username: string, 
+  phoneNumber: string
+): Promise<User> {
+  
+  // 1. Pre-check for duplicate phone numbers
+  if (phoneNumber) {
+    const q = query(collection(db, "users"), where("phoneNumber", "==", phoneNumber));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      throw new Error("This phone number is already registered.");
+    }
+  }
 
-// This function creates a new user and sets up their display name correctly
-export async function signUp(email: string, password: string, displayName: string): Promise<User> {
+  // 2. Create the user in Firebase Auth
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   
-  // 1. Save the name to the Firebase profile
-  await updateProfile(credential.user, {
-    displayName: displayName,
-  });
+  // 3. Update the Auth Profile first
+  await updateProfile(credential.user, { displayName: username });
 
-  // 2. Refresh the local user data so the name shows up right away
-  await credential.user.getIdToken(true);
+  // 4. We must ensure the Firestore document exists before the UI tries to read it.
+  const userDocData = {
+    uid: credential.user.uid,
+    // Store original email if not a placeholder, else null
+    email: email.toLowerCase().includes("payup-placeholder.com") ? null : email.toLowerCase(),
+    phoneNumber: phoneNumber || null,
+    username: username, 
+    role: "user", 
+    signupMethod: phoneNumber ? 'phone' : 'email',
+    createdAt: new Date().toISOString()
+  };
 
-  // 3. Reload the user information to be sure it's updated
+  // Wait for Firestore to confirm the write
+  await setDoc(doc(db, "users", credential.user.uid), userDocData);
+
+  // Reload to ensure the displayName and metadata are fresh
   await credential.user.reload();
-
-  // 4. Return the fully updated user
+  
   return auth.currentUser!; 
 }
 
-// This function logs in an existing user with their email and password
-export async function login(email: string, password: string): Promise<User> {
-  const credential = await signInWithEmailAndPassword(auth, email, password);
+export async function login(identifier: string, password: string): Promise<User> {
+  const isEmail = identifier.includes('@');
+  // Ensure lowercase for consistency
+  const loginEmail = isEmail ? identifier.toLowerCase().trim() : `${identifier.trim()}@payup-placeholder.com`;
+  
+  const credential = await signInWithEmailAndPassword(auth, loginEmail, password);
   return credential.user; 
 }
 
-// This function signs the user out of the app
 export async function logout(): Promise<void> {
-  // Uses the Firebase command to end the session
   await firebaseSignOut(auth);
-}
-
-// This simple helper check who is currently logged in
-export function getCurrentUser(): User | null {
-  return auth.currentUser;
 }

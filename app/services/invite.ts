@@ -1,37 +1,64 @@
-import { addDoc, arrayUnion, collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import {
+  addDoc,
+  arrayRemove,
+  arrayUnion,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+  writeBatch
+} from "firebase/firestore";
 import { db } from "../firebase";
+import { User as AppUser } from "../types";
 
 /**
  * Friend system functions
  */
-
-// Validates and saves a new pending friend request if no duplicate exists
-export async function sendFriendRequest(senderEmail: string, receiverEmail: string) {
-  const cleanEmail = receiverEmail.toLowerCase().trim();
+export async function sendFriendRequest(currentUser: AppUser, targetIdentifier: string) {
+  const identifier = targetIdentifier.trim().toLowerCase();
   
-  // Prevent sending to self
-  if (senderEmail === cleanEmail) throw new Error("You cannot add yourself.");
+  if (identifier === currentUser.email?.toLowerCase() || identifier === currentUser.phoneNumber) {
+    throw new Error("You cannot add yourself.");
+  }
 
-  // Check for existing pending requests to prevent duplicate spam
-  const q = query(
-    collection(db, "friendRequests"),
-    where("from", "==", senderEmail),
-    where("to", "==", cleanEmail),
-    where("status", "==", "pending")
-  );
-  
-  const snapshot = await getDocs(q);
-  if (!snapshot.empty) throw new Error("Request already pending.");
+  const usersRef = collection(db, "users");
+  let qUser = query(usersRef, where("email", "==", identifier));
+  let userSnapshot = await getDocs(qUser);
 
-  return await addDoc(collection(db, "friendRequests"), {
-    from: senderEmail,
-    to: cleanEmail,
+  if (userSnapshot.empty) {
+    qUser = query(usersRef, where("phoneNumber", "==", identifier));
+    userSnapshot = await getDocs(qUser);
+  }
+
+  if (userSnapshot.empty) {
+    throw new Error("User not found. Ensure they have an account.");
+  }
+
+  const targetDoc = userSnapshot.docs[0];
+  const targetData = targetDoc.data();
+  const targetUid = targetDoc.id;
+  const targetUsername = targetData.username || "User";
+
+  const requestId = `${currentUser.uid}_${targetUid}`;
+  const requestRef = doc(db, "friendRequests", requestId);
+
+  await setDoc(requestRef, {
+    fromUid: currentUser.uid,
+    fromUsername: currentUser.username,
+    fromIdentifier: currentUser.email || currentUser.phoneNumber,
+    toUid: targetUid,
+    toUsername: targetUsername,
+    toIdentifier: identifier,
     status: "pending",
     createdAt: serverTimestamp(),
   });
 }
 
-// Marks a specific friend request as accepted to update the user's friend list
 export async function acceptFriendRequest(requestId: string) {
   const requestRef = doc(db, "friendRequests", requestId);
   await updateDoc(requestRef, {
@@ -44,44 +71,76 @@ export async function acceptFriendRequest(requestId: string) {
  * Session and billing functions
  */
 
-// Initializes a new bill split session and creates pending invites for all selected friends
 export async function createSessionAndInvite(
-  hostEmail: string, 
-  participantEmails: string[], 
-  hostName: string 
+  hostUser: AppUser, 
+  participantIdentifiers: string[],
+  existingSessionId?: string 
 ) {
-  const sessionRef = await addDoc(collection(db, "sessions"), {
-    host: hostEmail,
-    hostName: hostName,
-    status: "waiting",
-    createdAt: serverTimestamp(),
-    participants: [hostEmail] 
-  });
+  let sessionId = existingSessionId;
 
-  // Map emails to a collection of individual invite documents for better querying
-  const invitePromises = participantEmails.map(email => 
-    addDoc(collection(db, "invites"), {
-      sessionId: sessionRef.id,
-      invitedBy: hostEmail,
-      hostName: hostName,
-      invitedEmail: email.toLowerCase().trim(),
+  if (!sessionId) {
+    const sessionRef = await addDoc(collection(db, "sessions"), {
+      hostId: hostUser.uid, 
+      hostEmail: hostUser.email,
+      hostName: hostUser.username,
+      status: "waiting", 
+      createdAt: serverTimestamp(),
+      participants: [hostUser.email || hostUser.phoneNumber] 
+    });
+    sessionId = sessionRef.id;
+  }
+
+  const invitePromises = participantIdentifiers.map(async (identifier) => {
+    return addDoc(collection(db, "invites"), {
+      sessionId: sessionId,
+      invitedBy: hostUser.uid,
+      invitedByEmail: hostUser.email || hostUser.phoneNumber,
+      hostName: hostUser.username,
+      invitedEmail: identifier.toLowerCase().trim(), 
       status: "pending",
       createdAt: serverTimestamp()
-    })
-  );
+    });
+  });
 
   await Promise.all(invitePromises);
-  return sessionRef.id;
+  return sessionId;
 }
 
-// Moves a user from the invite list into the active session participants array
-export async function joinSession(sessionId: string, userEmail: string, inviteId: string) {
-  if (inviteId && inviteId.trim() !== "") {
+export async function joinSession(sessionId: string, userId: string, inviteId: string) {
+  if (inviteId) {
     await updateDoc(doc(db, "invites", inviteId), { status: "accepted" });
   }
   
   const sessionRef = doc(db, "sessions", sessionId);
   await updateDoc(sessionRef, {
-    participants: arrayUnion(userEmail) 
+    participants: arrayUnion(userId) 
   });
+}
+
+// FIX: Uses writeBatch and deleteDoc
+export async function closeSession(sessionId: string) {
+  const batch = writeBatch(db);
+  
+  // Delete session doc
+  batch.delete(doc(db, "sessions", sessionId));
+  
+  // Find and delete all invites for this session
+  const q = query(collection(db, "invites"), where("sessionId", "==", sessionId));
+  const inviteSnaps = await getDocs(q);
+  inviteSnaps.forEach((d) => batch.delete(d.ref));
+  
+  await batch.commit();
+}
+
+// FIX: Uses arrayRemove
+export async function leaveSession(sessionId: string, userId: string) {
+  const sessionRef = doc(db, "sessions", sessionId);
+  await updateDoc(sessionRef, {
+    participants: arrayRemove(userId)
+  });
+}
+
+// FIX: Uses deleteDoc individually if needed
+export async function declineInvite(inviteId: string) {
+  await deleteDoc(doc(db, "invites", inviteId));
 }
