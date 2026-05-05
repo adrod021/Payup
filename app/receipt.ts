@@ -70,12 +70,18 @@ export async function saveReceiptScanToSession(
   const parsedReceipt = parseReceiptText(rawText);
 
   await updateDoc(doc(db, "sessions", sessionId), {
-    receiptImageUrl,
-    ocrResult: parsedReceipt,
-    total: parsedReceipt.total,
-    status: "scanning",
-    updatedAt: serverTimestamp(),
-  });
+  receiptImageUrl,
+  ocrResult: parsedReceipt,
+  items: parsedReceipt.items.map((item) => ({
+    ...item,
+    selectedBy: [],
+    selectedByUsername: [],
+  })),
+  total: parsedReceipt.total,
+  stage: "editing",
+  status: "scanning",
+  updatedAt: serverTimestamp(),
+});
 
   return {
     receiptImageUrl,
