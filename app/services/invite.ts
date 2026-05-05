@@ -1,75 +1,19 @@
 import {
   addDoc,
-  arrayRemove,
   arrayUnion,
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
-  setDoc,
   updateDoc,
   where,
   writeBatch
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { User as AppUser } from "../types";
-
-/**
- * Friend system functions
- */
-export async function sendFriendRequest(currentUser: AppUser, targetIdentifier: string) {
-  const identifier = targetIdentifier.trim().toLowerCase();
-  
-  if (identifier === currentUser.email?.toLowerCase() || identifier === currentUser.phoneNumber) {
-    throw new Error("You cannot add yourself.");
-  }
-
-  const usersRef = collection(db, "users");
-  let qUser = query(usersRef, where("email", "==", identifier));
-  let userSnapshot = await getDocs(qUser);
-
-  if (userSnapshot.empty) {
-    qUser = query(usersRef, where("phoneNumber", "==", identifier));
-    userSnapshot = await getDocs(qUser);
-  }
-
-  if (userSnapshot.empty) {
-    throw new Error("User not found. Ensure they have an account.");
-  }
-
-  const targetDoc = userSnapshot.docs[0];
-  const targetData = targetDoc.data();
-  const targetUid = targetDoc.id;
-  const targetUsername = targetData.username || "User";
-
-  const requestId = `${currentUser.uid}_${targetUid}`;
-  const requestRef = doc(db, "friendRequests", requestId);
-
-  await setDoc(requestRef, {
-    fromUid: currentUser.uid,
-    fromUsername: currentUser.username,
-    fromIdentifier: currentUser.email || currentUser.phoneNumber,
-    toUid: targetUid,
-    toUsername: targetUsername,
-    toIdentifier: identifier,
-    status: "pending",
-    createdAt: serverTimestamp(),
-  });
-}
-
-export async function acceptFriendRequest(requestId: string) {
-  const requestRef = doc(db, "friendRequests", requestId);
-  await updateDoc(requestRef, {
-    status: "accepted",
-    acceptedAt: serverTimestamp(),
-  });
-}
-
-/**
- * Session and billing functions
- */
 
 export async function createSessionAndInvite(
   hostUser: AppUser, 
@@ -78,25 +22,51 @@ export async function createSessionAndInvite(
 ) {
   let sessionId = existingSessionId;
 
+  // 1. Create session if it doesn't exist
   if (!sessionId) {
     const sessionRef = await addDoc(collection(db, "sessions"), {
       hostId: hostUser.uid, 
-      hostEmail: hostUser.email,
+      hostEmail: hostUser.email || "",
       hostName: hostUser.username,
       status: "waiting", 
+      stage: "setup", 
       createdAt: serverTimestamp(),
-      participants: [hostUser.email || hostUser.phoneNumber] 
+      participants: [hostUser.uid],
+      participantUsernames: [hostUser.username || "Host"],
+      participantEmails: [hostUser.email || ""],
+      participantPhones: [hostUser.phoneNumber || ""]
     });
     sessionId = sessionRef.id;
   }
 
+  // 2. Handle Invites with Duplicate Prevention
   const invitePromises = participantIdentifiers.map(async (identifier) => {
+    const cleanIdentifier = identifier.toLowerCase().trim();
+
+    // Check for existing pending invites for this person in this session
+    const q = query(
+      collection(db, "invites"),
+      where("sessionId", "==", sessionId),
+      where("invitedEmail", "==", cleanIdentifier),
+      where("status", "==", "pending")
+    );
+    
+    const existingInvites = await getDocs(q);
+    
+    // Delete previous invites to avoid duplicates
+    const batch = writeBatch(db);
+    existingInvites.forEach((oldDoc) => {
+      batch.delete(oldDoc.ref);
+    });
+    await batch.commit();
+
+    // Send the new invite
     return addDoc(collection(db, "invites"), {
       sessionId: sessionId,
       invitedBy: hostUser.uid,
       invitedByEmail: hostUser.email || hostUser.phoneNumber,
       hostName: hostUser.username,
-      invitedEmail: identifier.toLowerCase().trim(), 
+      invitedEmail: cleanIdentifier, 
       status: "pending",
       createdAt: serverTimestamp()
     });
@@ -111,36 +81,36 @@ export async function joinSession(sessionId: string, userId: string, inviteId: s
     await updateDoc(doc(db, "invites", inviteId), { status: "accepted" });
   }
   
+  const userSnap = await getDoc(doc(db, "users", userId));
+  const userData = userSnap.data();
+  
+  const userName = userData?.username || "New Member";
+  const userEmail = userData?.email || "";
+  const userPhone = userData?.phoneNumber || "";
+
   const sessionRef = doc(db, "sessions", sessionId);
+  
   await updateDoc(sessionRef, {
-    participants: arrayUnion(userId) 
+    participants: arrayUnion(userId),
+    participantUsernames: arrayUnion(userName),
+    participantEmails: arrayUnion(userEmail),
+    participantPhones: arrayUnion(userPhone)
   });
 }
 
-// FIX: Uses writeBatch and deleteDoc
+/**
+ * Force closes the session and deletes all associated invites
+ */
 export async function closeSession(sessionId: string) {
-  const batch = writeBatch(db);
-  
-  // Delete session doc
-  batch.delete(doc(db, "sessions", sessionId));
-  
-  // Find and delete all invites for this session
+  // Find all invites linked to this session
   const q = query(collection(db, "invites"), where("sessionId", "==", sessionId));
   const inviteSnaps = await getDocs(q);
-  inviteSnaps.forEach((d) => batch.delete(d.ref));
   
+  // Use a batch to delete all invites at once
+  const batch = writeBatch(db);
+  inviteSnaps.forEach((d) => batch.delete(d.ref));
   await batch.commit();
-}
 
-// FIX: Uses arrayRemove
-export async function leaveSession(sessionId: string, userId: string) {
-  const sessionRef = doc(db, "sessions", sessionId);
-  await updateDoc(sessionRef, {
-    participants: arrayRemove(userId)
-  });
-}
-
-// FIX: Uses deleteDoc individually if needed
-export async function declineInvite(inviteId: string) {
-  await deleteDoc(doc(db, "invites", inviteId));
+  // Finally delete the session itself
+  await deleteDoc(doc(db, "sessions", sessionId));
 }

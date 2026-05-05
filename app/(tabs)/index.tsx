@@ -59,8 +59,7 @@ export default function HomeScreen() {
 
   const handleAcceptInvite = async (invite: any) => {
     try {
-      const currentId = user?.email || user?.phoneNumber || user?.uid || "User";
-      await joinSession(invite.sessionId, currentId, invite.id);
+      await joinSession(invite.sessionId, user!.uid, invite.id);
       setIsConnecting(false);
       setSessionId(invite.sessionId);
       setShowInvite(true);
@@ -72,10 +71,9 @@ export default function HomeScreen() {
 
   const startMode = async (mode: 'itemized' | 'roulette', method?: 'scan' | 'manual') => {
     if (!sessionId) return;
-    await updateDoc(doc(db, "sessions", sessionId), { status: mode });
+    await updateDoc(doc(db, "sessions", sessionId), { status: mode, stage: 'creating' });
     
     if (mode === 'itemized') {
-      // Routing to manual_split instead of billing
       router.push({ pathname: '/manual_split', params: { sessionId, method } });
     } else {
       router.push({ pathname: '/splitpay/create/roulette_spin', params: { sessionId } });
@@ -95,7 +93,7 @@ export default function HomeScreen() {
   }, [user]);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || !user) return;
     const unsub = onSnapshot(doc(db, "sessions", sessionId), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -118,11 +116,11 @@ export default function HomeScreen() {
   }, [sessionId, user, router, handleBack]);
 
   const isHost = !sessionId || user?.uid === sessionHostId;
+  const canStart = joinedCount > 1; // Requirement: At least one person accepted the invite
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
       <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: 20 }}>
-        
         <View style={{ flexDirection: 'row', justifyContent: 'flex-start', marginBottom: 20 }}>
           {(showOptions || showInvite || isConnecting) && (
             <TouchableOpacity onPress={handleBack}><Ionicons name="arrow-back" size={24} color="#00966d" /></TouchableOpacity>
@@ -132,7 +130,7 @@ export default function HomeScreen() {
         {isConnecting ? (
           <View style={{ flex: 1, justifyContent: 'center' }}>
             <Text style={{ fontSize: 24, fontWeight: '900', textAlign: 'center', marginBottom: 20 }}>Waiting for Invites</Text>
-            <View style={{ width: '100%', backgroundColor: '#f3f4f6', borderRadius: 40, padding: 24, minHeight: 300, justifyContent: invites.length === 0 ? 'center' : 'flex-start' }}>
+            <View style={{ width: '100%', backgroundColor: '#f3f4f6', borderRadius: 40, padding: 24, minHeight: 300 }}>
               {isLoadingInvites ? <ActivityIndicator color="#00966d" size="large" /> : (
                 invites.length > 0 ? (
                   <ScrollView>
@@ -147,9 +145,7 @@ export default function HomeScreen() {
                     ))}
                   </ScrollView>
                 ) : (
-                  <Text style={{ color: '#6b7280', textAlign: 'center', fontWeight: '600', fontSize: 16, paddingHorizontal: 10 }}>
-                    No Invites Yet!
-                  </Text>
+                  <Text style={{ color: '#6b7280', textAlign: 'center', fontWeight: '600', fontSize: 16 }}>No Invites Yet!</Text>
                 )
               )}
             </View>
@@ -204,32 +200,18 @@ export default function HomeScreen() {
                   ) : (
                     <View style={{ marginTop: 40, alignItems: 'center' }}>
                       <ActivityIndicator color="#00966d" size="large" />
-                      <Text style={{ marginTop: 20, fontWeight: '700', color: '#6b7280', textAlign: 'center' }}>
-                        Joined! Waiting for host to choose mode...
-                      </Text>
+                      <Text style={{ marginTop: 20, fontWeight: '700', color: '#6b7280' }}>Joined! Waiting for host...</Text>
                     </View>
                   )
                 ) : (
                   <>
                     <View style={{ flexDirection: 'row', marginBottom: 20 }}>
-                      <TextInput 
-                        placeholder="Email or Phone" 
-                        value={inviteInput} 
-                        onChangeText={setInviteInput} 
-                        style={{ flex: 1, backgroundColor: '#f3f4f6', padding: 15, borderRadius: 15 }} 
-                      />
-                      <TouchableOpacity 
-                        onPress={handleAddParticipant} 
-                        style={{ backgroundColor: '#00966d', padding: 15, borderRadius: 15, marginLeft: 10 }}
-                      >
+                      <TextInput placeholder="Email or Phone" value={inviteInput} onChangeText={setInviteInput} style={{ flex: 1, backgroundColor: '#f3f4f6', padding: 15, borderRadius: 15 }} />
+                      <TouchableOpacity onPress={handleAddParticipant} style={{ backgroundColor: '#00966d', padding: 15, borderRadius: 15, marginLeft: 10 }}>
                         <Ionicons name="add" size={24} color="white" />
                       </TouchableOpacity>
                     </View>
-                    <TouchableOpacity 
-                      onPress={() => setIsRoomCreated(true)} 
-                      disabled={!sessionId} 
-                      style={{ backgroundColor: sessionId ? '#00966d' : '#9ca3af', padding: 20, borderRadius: 16, width: '100%' }}
-                    >
+                    <TouchableOpacity onPress={() => setIsRoomCreated(true)} disabled={!canStart} style={{ backgroundColor: canStart ? '#00966d' : '#9ca3af', padding: 20, borderRadius: 16, width: '100%' }}>
                       <Text style={{ color: 'white', fontWeight: '900', textAlign: 'center' }}>START SESSION</Text>
                     </TouchableOpacity>
                   </>
