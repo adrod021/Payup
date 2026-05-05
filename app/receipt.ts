@@ -1,7 +1,7 @@
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "../firebase";
-import { extractFirstCurrency } from "../utils/ocr";
+import { db, storage } from "./firebase";
+import { extractFirstCurrency } from "./utils/ocr";
 
 export type ParsedReceiptItem = {
   id: string;
@@ -10,7 +10,7 @@ export type ParsedReceiptItem = {
   quantity: number;
 };
 
-export async function uploadReceiptImage(uri: string, sessionId: string) {
+export async function uploadReceiptItem(uri: string, sessionId: string) {
   const response = await fetch(uri);
   const blob = await response.blob();
 
@@ -66,7 +66,7 @@ export async function saveReceiptScanToSession(
   imageUri: string,
   rawText: string
 ) {
-  const receiptImageUrl = await uploadReceiptImage(imageUri, sessionId);
+  const receiptImageUrl = await uploadReceiptItem(imageUri, sessionId);
   const parsedReceipt = parseReceiptText(rawText);
 
   await updateDoc(doc(db, "sessions", sessionId), {

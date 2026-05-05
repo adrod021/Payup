@@ -7,6 +7,7 @@ import {
   initializeAuth
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -29,8 +30,9 @@ const auth = getApps().length === 0
 // 3. Initialize Firestore
 const db = getFirestore(app);
 
-export { app, auth, db, storage };
+//define storage for ocr reciept 
+ const storage = getStorage(app);
 
-// Explicitly export for your services (invite.ts) and components (index.tsx)
-  export { app, auth, db };
+// exporing reciept and all variables
+export { app, auth, db, storage };
 
