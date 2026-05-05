@@ -55,7 +55,7 @@ export default function ManualSplitScreen() {
       // Navigate forward to summary only if the stage is set to summary
       if (data.stage === 'summary' && !navigationLock.current) {
         navigationLock.current = true;
-        router.push({ pathname: '/final_split', params: { sessionId } });
+        router.push({pathname: './final_split', params: { sessionId } });
       } else if (data.stage !== 'summary') {
         navigationLock.current = false; // Reset lock if we move back
       }
