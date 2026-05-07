@@ -16,6 +16,7 @@ export default function ManualSplitScreen() {
   const [items, setItems] = useState<any[]>([]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
+  const [tax, setTax] = useState('0.00'); // New state for tax decimal
   const [sessionData, setSessionData] = useState<any>(null);
   const [myUsername, setMyUsername] = useState('New User');
   const [showSettings, setShowSettings] = useState(false);
@@ -51,6 +52,7 @@ export default function ManualSplitScreen() {
 
       setSessionData(data);
       setItems(data.items || []);
+      if (data.tax !== undefined) setTax(data.tax.toString()); // Keep tax in sync
       
       if (data.stage === 'summary' && !navigationLock.current) {
         navigationLock.current = true;
@@ -88,7 +90,11 @@ export default function ManualSplitScreen() {
       }
       await updateDoc(doc(db, "sessions", sessionId!), { stage: 'summary' });
     } else {
-      await updateDoc(doc(db, "sessions", sessionId!), { stage: 'selecting' });
+      // Save the tax decimal to Firestore when the host finishes the list
+      await updateDoc(doc(db, "sessions", sessionId!), { 
+        stage: 'selecting',
+        tax: parseFloat(tax) || 0 
+      });
     }
   };
 
@@ -188,7 +194,6 @@ export default function ManualSplitScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={{ fontWeight: '900', color: isTaken ? '#9ca3af' : 'black' }}>${item.price.toFixed(2)}</Text>
                   
-                  {/* Trash icon enabled for both OCR review and Manual creation phases */}
                   {isHost && sessionData.stage !== 'selecting' && (
                     <TouchableOpacity onPress={() => removeItem(item.id)} style={{ marginLeft: 15 }}>
                       <Ionicons name="trash-outline" size={22} color="#ef4444" />
@@ -199,6 +204,20 @@ export default function ManualSplitScreen() {
             </TouchableOpacity>
           );
         })}
+
+        {/* TAX INPUT BOX AT THE BOTTOM OF THE LIST */}
+        {isHost && sessionData.stage !== 'selecting' && (
+          <View style={{ marginTop: 20, marginBottom: 30, padding: 15, backgroundColor: '#f3f4f6', borderRadius: 14 }}>
+            <Text style={{ fontWeight: '800', marginBottom: 5 }}>Sales Tax Total ($)</Text>
+            <TextInput 
+              placeholder="0.00" 
+              value={tax} 
+              onChangeText={setTax} 
+              keyboardType="numeric" 
+              style={{ backgroundColor: 'white', padding: 15, borderRadius: 12 }} 
+            />
+          </View>
+        )}
       </ScrollView>
 
       <View style={{ padding: 20 }}>
@@ -211,6 +230,7 @@ export default function ManualSplitScreen() {
         ) : <Text style={{ textAlign: 'center', color: '#6b7280' }}>Waiting for host...</Text>}
       </View>
 
+      {/* Settings Modal code remains unchanged... */}
       <Modal visible={showSettings} transparent animationType="slide">
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <View style={{ backgroundColor: 'white', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 30 }}>

@@ -1,90 +1,30 @@
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "./firebase";
-import { extractFirstCurrency } from "./services/ocrService";
-
-export type ParsedReceiptItem = {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-};
-
-export async function uploadReceiptItem(uri: string, sessionId: string) {
-  const response = await fetch(uri);
-  const blob = await response.blob();
-
-  const imageRef = ref(storage, `receipts/${sessionId}/receipt.jpg`);
-
-  await uploadBytes(imageRef, blob);
-
-  return await getDownloadURL(imageRef);
-}
-
-export function parseReceiptText(rawText: string) {
-  const lines = rawText
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const items: ParsedReceiptItem[] = [];
-
-  for (const line of lines) {
-    const price = extractFirstCurrency(line);
-
-    if (price !== null) {
-      const name = line
-        .replace(/\$?\d+(\.\d{2})?/, "")
-        .trim();
-
-      if (name.length > 0) {
-        items.push({
-          id: `${Date.now()}-${items.length}`,
-          name,
-          price,
-          quantity: 1,
-        });
-      }
-    }
-  }
-
-  const totalLine = lines.find((line) =>
-    line.toLowerCase().includes("total")
-  );
-
-  const total = totalLine ? extractFirstCurrency(totalLine) : null;
-
-  return {
-    rawText,
-    items,
-    total,
-  };
-}
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "./firebase";
+import { ScannedItem } from "./services/ocrService";
 
 export async function saveReceiptScanToSession(
-  sessionId: string,
-  imageUri: string,
-  rawText: string
+  sessionId: string, 
+  scannedItems: ScannedItem[] 
 ) {
-  const receiptImageUrl = await uploadReceiptItem(imageUri, sessionId);
-  const parsedReceipt = parseReceiptText(rawText);
+  const sessionRef = doc(db, "sessions", sessionId);
 
-  await updateDoc(doc(db, "sessions", sessionId), {
-  receiptImageUrl,
-  ocrResult: parsedReceipt,
-  items: parsedReceipt.items.map((item) => ({
-    ...item,
-    selectedBy: [],
-    selectedByUsername: [],
-  })),
-  total: parsedReceipt.total,
-  stage: "editing",
-  status: "scanning",
-  updatedAt: serverTimestamp(),
-});
+  const itemsForFirestore = scannedItems.map(item => ({
+    id: item.id || Math.random().toString(36).substring(7),
+    name: item.name,
+    price: item.price,
+    selectedBy: [],         
+    selectedByUsername: []  
+  }));
 
-  return {
-    receiptImageUrl,
-    ...parsedReceipt,
+  try {
+    // We only save the TEXT data to Firestore (which is free)
+    await updateDoc(sessionRef, {
+      items: itemsForFirestore,
+      status: 'itemized',
+      stage: 'setup' 
+    });
+  } catch (error) {
+    console.error("Database Error:", error);
+    throw error;
   }
-};
+}

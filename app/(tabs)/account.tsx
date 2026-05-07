@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+// Added deleteUser from firebase/auth
+import { deleteUser, getAuth, sendPasswordResetEmail } from "firebase/auth";
+import { deleteDoc, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,7 +22,6 @@ export default function AccountScreen() {
 
     const userRef = doc(db, "users", currentUser.uid);
     
-    // real-time listener for user profile data
     const unsubscribe = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
         setExtraData(docSnap.data());
@@ -69,6 +70,59 @@ export default function AccountScreen() {
     }
   };
 
+  // NEW: Password Reset Logic
+  const handleResetPassword = async () => {
+    if (!user?.email) {
+      Alert.alert("Error", "No email associated with this account.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(getAuth(), user.email);
+      Alert.alert("Email Sent", "Check your inbox for password reset instructions.");
+    } catch (err: any) {
+      Alert.alert("Error", err.message);
+    }
+  };
+
+  // NEW: Delete Account Logic
+  const handleDeleteAccount = async () => {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) return;
+
+    Alert.alert(
+      "Delete Account",
+      "This action is permanent and cannot be undone. Are you sure?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              // 1. Delete Firestore data
+              await deleteDoc(doc(db, "users", currentUser.uid));
+              // 2. Delete Auth record
+              await deleteUser(currentUser);
+              
+              Alert.alert("Account Deleted", "Your account has been removed.");
+              router.replace("/");
+            } catch (err: any) {
+              console.error(err);
+              // Firebase requires a recent login to delete an account
+              if (err.code === 'auth/requires-recent-login') {
+                Alert.alert("Security Check", "Please log out and log back in to verify your identity before deleting your account.");
+              } else {
+                Alert.alert("Error", "Could not delete account. Try again later.");
+              }
+            }
+          } 
+        }
+      ]
+    );
+  };
+
   const ProfileRow = ({ 
     label, 
     value, 
@@ -102,7 +156,6 @@ export default function AccountScreen() {
     </View>
   );
 
-  // Logic to handle null emails for phone-based accounts
   const displayEmail = extraData?.email || 
     (user?.email?.includes("payup-placeholder.com") ? "Not linked" : user?.email) || 
     "Not linked";
@@ -160,7 +213,7 @@ export default function AccountScreen() {
           <View style={{ width: '100%' }}>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => Alert.alert("Coming Soon", "Password reset is under development.")}
+              onPress={handleResetPassword}
               style={{ backgroundColor: '#2563eb', padding: 20, borderRadius: 20, marginBottom: 16 }}
             >
               <Text style={{ color: 'white', fontWeight: '700', fontSize: 16, textAlign: 'center' }}>Reset Password</Text>
@@ -176,7 +229,7 @@ export default function AccountScreen() {
 
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => Alert.alert("Caution", "Account deletion is permanent.")}
+              onPress={handleDeleteAccount}
               style={{ backgroundColor: '#ef4444', padding: 20, borderRadius: 20, marginBottom: 32 }}
             >
               <Text style={{ color: 'white', fontWeight: '700', fontSize: 16, textAlign: 'center' }}>Delete Account</Text>

@@ -1,9 +1,7 @@
 import {
   addDoc,
-  arrayRemove,
   arrayUnion,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -17,164 +15,90 @@ import {
 import { db } from "../firebase";
 import { User as AppUser } from "../types";
 
-/**
- * FRIEND SYSTEM FUNCTIONS
- */
+// 10 distinct, high-contrast colors for the wheel
+const ROULETTE_COLORS = [
+  '#E63946', '#457B9D', '#1D3557', '#F4A261', '#2A9D8F', 
+  '#8338EC', '#3A86FF', '#0077B6', '#606C38', '#283618'
+];
 
 export async function sendFriendRequest(currentUser: AppUser, targetIdentifier: string) {
   const identifier = targetIdentifier.trim().toLowerCase();
-  
   if (identifier === currentUser.email?.toLowerCase() || identifier === currentUser.phoneNumber) {
     throw new Error("You cannot add yourself.");
   }
-
   const usersRef = collection(db, "users");
-  
-  // Try searching by email
   let qUser = query(usersRef, where("email", "==", identifier));
   let userSnapshot = await getDocs(qUser);
-
-  // If not found, try searching by phone
   if (userSnapshot.empty) {
     qUser = query(usersRef, where("phoneNumber", "==", identifier));
     userSnapshot = await getDocs(qUser);
   }
-
-  if (userSnapshot.empty) {
-    throw new Error("User not found. Ensure they have an account.");
-  }
+  if (userSnapshot.empty) throw new Error("User not found.");
 
   const targetDoc = userSnapshot.docs[0];
-  const targetData = targetDoc.data();
-  const targetUid = targetDoc.id;
-  const targetUsername = targetData.username || "User";
-
-  // Unique ID for the request to prevent duplicates
-  const requestId = `${currentUser.uid}_${targetUid}`;
-  const requestRef = doc(db, "friendRequests", requestId);
-
-  await setDoc(requestRef, {
+  const requestId = `${currentUser.uid}_${targetDoc.id}`;
+  await setDoc(doc(db, "friendRequests", requestId), {
     fromUid: currentUser.uid,
     fromUsername: currentUser.username || "User",
-    fromIdentifier: currentUser.email || currentUser.phoneNumber,
-    toUid: targetUid,
-    toUsername: targetUsername,
-    toIdentifier: identifier,
+    toUid: targetDoc.id,
+    toUsername: targetDoc.data().username || "User",
     status: "pending",
     createdAt: serverTimestamp(),
   });
 }
 
-export async function acceptFriendRequest(requestId: string) {
-  const requestRef = doc(db, "friendRequests", requestId);
-  await updateDoc(requestRef, {
-    status: "accepted",
-    acceptedAt: serverTimestamp(),
-  });
-}
-
-export async function declineInvite(inviteId: string) {
-  await deleteDoc(doc(db, "invites", inviteId));
-}
-
-/**
- * SESSION & BILLING FUNCTIONS
- */
-
-export async function createSessionAndInvite(
-  hostUser: AppUser, 
-  participantIdentifiers: string[],
-  existingSessionId?: string 
-) {
+export async function createSessionAndInvite(hostUser: AppUser, participantIdentifiers: string[], existingSessionId?: string) {
   let sessionId = existingSessionId;
-
-  // 1. Create session if it doesn't exist (keeping your metadata updates)
   if (!sessionId) {
     const sessionRef = await addDoc(collection(db, "sessions"), {
       hostId: hostUser.uid, 
-      hostEmail: hostUser.email || "",
       hostName: hostUser.username,
       status: "waiting", 
       stage: "setup", 
       createdAt: serverTimestamp(),
       participants: [hostUser.uid],
       participantUsernames: [hostUser.username || "Host"],
-      participantEmails: [hostUser.email || ""],
-      participantPhones: [hostUser.phoneNumber || ""]
+      participantColors: [ROULETTE_COLORS[0]] // Host gets color 1
     });
     sessionId = sessionRef.id;
   }
 
-  // 2. Handle Invites with Duplicate Prevention
   const invitePromises = participantIdentifiers.map(async (identifier) => {
-    const cleanIdentifier = identifier.toLowerCase().trim();
-
-    const q = query(
-      collection(db, "invites"),
-      where("sessionId", "==", sessionId),
-      where("invitedEmail", "==", cleanIdentifier),
-      where("status", "==", "pending")
-    );
-    
-    const existingInvites = await getDocs(q);
-    
-    const batch = writeBatch(db);
-    existingInvites.forEach((oldDoc) => {
-      batch.delete(oldDoc.ref);
-    });
-    await batch.commit();
-
+    const cleanId = identifier.toLowerCase().trim();
     return addDoc(collection(db, "invites"), {
-      sessionId: sessionId,
+      sessionId,
       invitedBy: hostUser.uid,
-      invitedByEmail: hostUser.email || hostUser.phoneNumber,
-      hostName: hostUser.username,
-      invitedEmail: cleanIdentifier, 
+      invitedEmail: cleanId, 
       status: "pending",
       createdAt: serverTimestamp()
     });
   });
-
   await Promise.all(invitePromises);
   return sessionId;
 }
 
 export async function joinSession(sessionId: string, userId: string, inviteId: string) {
-  if (inviteId) {
-    await updateDoc(doc(db, "invites", inviteId), { status: "accepted" });
-  }
+  if (inviteId) await updateDoc(doc(db, "invites", inviteId), { status: "accepted" });
   
   const userSnap = await getDoc(doc(db, "users", userId));
-  const userData = userSnap.data();
-  
-  const userName = userData?.username || "New Member";
-  const userEmail = userData?.email || "";
-  const userPhone = userData?.phoneNumber || "";
-
   const sessionRef = doc(db, "sessions", sessionId);
+  const sessionSnap = await getDoc(sessionRef);
   
+  const currentParticipants = sessionSnap.data()?.participants || [];
+  const assignedColor = ROULETTE_COLORS[currentParticipants.length % ROULETTE_COLORS.length];
+
   await updateDoc(sessionRef, {
     participants: arrayUnion(userId),
-    participantUsernames: arrayUnion(userName),
-    participantEmails: arrayUnion(userEmail),
-    participantPhones: arrayUnion(userPhone)
-  });
-}
-
-export async function leaveSession(sessionId: string, userId: string) {
-  const sessionRef = doc(db, "sessions", sessionId);
-  await updateDoc(sessionRef, {
-    participants: arrayRemove(userId)
+    participantUsernames: arrayUnion(userSnap.data()?.username || "New Member"),
+    participantColors: arrayUnion(assignedColor)
   });
 }
 
 export async function closeSession(sessionId: string) {
   const q = query(collection(db, "invites"), where("sessionId", "==", sessionId));
   const inviteSnaps = await getDocs(q);
-  
   const batch = writeBatch(db);
   inviteSnaps.forEach((d) => batch.delete(d.ref));
   batch.delete(doc(db, "sessions", sessionId));
-  
   await batch.commit();
 }

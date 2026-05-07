@@ -5,39 +5,48 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { login } from "./services/auth";
 
 export default function LoginScreen() {
-  // Renamed to 'identifier' since it can be email or phone
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
 
   const handleLogin = async () => {
-    if (!identifier.trim() || !password.trim()) {
+    const cleanId = identifier.trim();
+    if (!cleanId || !password.trim()) {
       Alert.alert("Error", "Please enter your email/phone and password.");
       return;
     }
 
     try {
-      // The login function in auth.ts now handles the identifier logic
-      await login(identifier, password);
+      await login(cleanId, password);
       router.replace("/(tabs)");
     } catch (error: any) {
-      Alert.alert("Login Error", error.message);
+      // Logic to handle specific Firebase Error codes
+      let errorMessage = "An unexpected error occurred.";
+
+      // Firebase often returns 'auth/invalid-credential' for both wrong email and wrong password
+      if (error.code === 'auth/invalid-credential') {
+        errorMessage = "Invalid email/phone or password. Please try again.";
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = "No account found with this information.";
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = "Incorrect password. Please try again.";
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = "Too many failed attempts. Please try again later.";
+      } else {
+        errorMessage = error.message;
+      }
+
+      Alert.alert("Login Failed", errorMessage);
     }
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} style={{ backgroundColor: 'white' }}>
-        
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
+          
           <View style={{ alignItems: 'center', marginBottom: 48, width: '100%' }}>
-            <Text style={{ 
-              fontSize: 72, 
-              fontWeight: '900', 
-              color: 'black', 
-              textAlign: 'center',
-              marginTop: -20 
-            }}>
+            <Text style={{ fontSize: 72, fontWeight: '900', color: 'black', textAlign: 'center', marginTop: -20 }}>
               PayUp
             </Text>
             <Text style={{ fontSize: 32, fontWeight: '700', color: '#1f2937', marginTop: 4 }}>Login</Text>
@@ -51,8 +60,7 @@ export default function LoginScreen() {
                 value={identifier}
                 onChangeText={setIdentifier}
                 autoCapitalize="none"
-                // Changed to 'default' to allow both numbers and letters easily
-                keyboardType="default" 
+                keyboardType="default"
                 placeholderTextColor="#9ca3af"
                 style={{ borderWidth: 2, borderColor: '#e5e7eb', padding: 20, borderRadius: 16, color: 'black', backgroundColor: '#f9fafb', fontSize: 18, width: '100%' }}
               />
@@ -79,12 +87,9 @@ export default function LoginScreen() {
             <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 20, letterSpacing: 1.5 }}>LOGIN</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            onPress={() => router.push("/signup")} 
-            style={{ marginTop: 40 }}
-          >
+          <TouchableOpacity onPress={() => router.push("/signup")} style={{ marginTop: 40 }}>
             <Text style={{ color: '#6b7280', textAlign: 'center', fontSize: 18 }}>
-              {"Don't have an account? "} 
+              {"Don't have an account? "}
               <Text style={{ color: '#00966d', fontWeight: 'bold' }}>Sign Up</Text>
             </Text>
           </TouchableOpacity>

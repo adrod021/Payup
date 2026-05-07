@@ -1,13 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import {
-  getAuth,
-  // @ts-ignore
-  getReactNativePersistence,
-  initializeAuth
-} from 'firebase/auth';
+import { getAuth, initializeAuth } from 'firebase/auth';
+// Deep import to bypass the TypeScript export error
+// @ts-ignore
+import { getReactNativePersistence } from '@firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -18,21 +15,19 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
-// 1. Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// 2. Initialize Auth with Persistence
-// We check if auth is already initialized to prevent the "Auth instance already exists" error
-const auth = getApps().length === 0 
-  ? initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) })
-  : getAuth(app);
+let auth;
+try {
+  auth = getAuth(app);
+} catch {
+  // Empty catch block fixes the "'e' is defined but never used" error
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+}
 
-// 3. Initialize Firestore
 const db = getFirestore(app);
 
-//define storage for ocr reciept 
- const storage = getStorage(app);
-
-// exporing reciept and all variables
-export { app, auth, db, storage };
-
+// Removed 'storage' export since you are on the Free Tier
+export { app, auth, db };

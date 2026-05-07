@@ -23,26 +23,47 @@ export default function FinalSplitScreen() {
       }
       const data = snap.data();
       
-      // If the host hit "back", this listener triggers and moves participants back too
       if (data.stage !== 'summary') {
         router.replace({ pathname: '/manual_split', params: { sessionId } });
         return;
       }
 
       setSessionData(data);
+      
+      const totalTax = data.tax || 0;
+      let subtotal = 0;
+      data.items?.forEach((item: any) => subtotal += item.price);
+
+      // Tax Ratio: How much tax is owed per $1 spent
+      const taxRatio = subtotal > 0 ? totalTax / subtotal : 0;
+
       const userMap: any = {};
       data.participants.forEach((uid: string, index: number) => {
-        userMap[uid] = { name: data.participantUsernames[index] || "User", items: [], total: 0 };
+        userMap[uid] = { 
+          name: data.participantUsernames[index] || "User", 
+          items: [], 
+          personalSubtotal: 0,
+          taxShare: 0,
+          total: 0 
+        };
       });
 
       data.items?.forEach((item: any) => {
         item.selectedBy?.forEach((uid: string) => {
           if (userMap[uid]) {
-            userMap[uid].items.push(item);
-            userMap[uid].total += (item.price / item.selectedBy.length);
+            const splitPrice = item.price / item.selectedBy.length;
+            userMap[uid].items.push({ name: item.name, price: splitPrice });
+            userMap[uid].personalSubtotal += splitPrice;
           }
         });
       });
+
+      // Apply the proportional tax to each person
+      Object.keys(userMap).forEach(uid => {
+        userMap[uid].taxShare = userMap[uid].personalSubtotal * taxRatio;
+        userMap[uid].total = userMap[uid].personalSubtotal + userMap[uid].taxShare;
+      });
+
       setSummaries(Object.values(userMap));
     });
     return () => unsub();
@@ -77,7 +98,7 @@ export default function FinalSplitScreen() {
           </TouchableOpacity>
         ) : <View style={{ width: 28 }} />}
         
-        <Text style={{ fontSize: 26, fontWeight: '900' }}>Totals</Text>
+        <Text style={{ fontSize: 26, fontWeight: '900' }}>Payment Summary</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -86,15 +107,29 @@ export default function FinalSplitScreen() {
           <View key={i} style={{ backgroundColor: '#f9fafb', borderRadius: 20, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: '#eee' }}>
             <Text style={{ fontSize: 20, fontWeight: '800', marginBottom: 5 }}>{u.name}</Text>
             <View style={{ height: 1, backgroundColor: '#ddd', marginBottom: 10 }} />
+            
             {u.items.map((item: any, idx: number) => (
               <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
                 <Text style={{ color: '#4b5563' }}>{item.name}</Text>
-                <Text style={{ color: '#4b5563' }}>${(item.price / item.selectedBy.length).toFixed(2)}</Text>
+                <Text style={{ color: '#4b5563' }}>${item.price.toFixed(2)}</Text>
               </View>
             ))}
+
+            {/* BREAKDOWN SECTION */}
+            <View style={{ marginTop: 10, borderTopWidth: 1, borderColor: '#eee', paddingTop: 10 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 12, color: '#6b7280' }}>Subtotal</Text>
+                <Text style={{ fontSize: 12, color: '#6b7280' }}>${u.personalSubtotal.toFixed(2)}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 12, color: '#6b7280' }}>Tax Share</Text>
+                <Text style={{ fontSize: 12, color: '#6b7280' }}>${u.taxShare.toFixed(2)}</Text>
+              </View>
+            </View>
+
             <View style={{ height: 1, backgroundColor: '#ddd', marginVertical: 10 }} />
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontWeight: '700' }}>Total</Text>
+              <Text style={{ fontWeight: '700' }}>Total Owed</Text>
               <Text style={{ fontWeight: '900', color: '#00966d' }}>${u.total.toFixed(2)}</Text>
             </View>
           </View>

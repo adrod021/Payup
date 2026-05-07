@@ -11,25 +11,47 @@ export default function SignUpScreen() {
   const router = useRouter();
 
   const handleSignUp = async () => {
-    if (!identifier.trim() || !username.trim() || !password.trim()) {
+    const cleanIdentifier = identifier.trim();
+    const cleanUsername = username.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanIdentifier || !cleanUsername || !cleanPassword) {
       Alert.alert("Error", "Please fill in all fields.");
       return;
     }
 
-    // Logic to separate email and phone number from the single identifier input
-    const isEmail = identifier.includes("@");
+    if (cleanPassword.length < 6) {
+      Alert.alert("Error", "Password must be at least 6 characters.");
+      return;
+    }
+
+    // Logic to separate email and phone number
+    const isEmail = cleanIdentifier.includes("@");
     
-    // If it's an email, use it. If it's a phone, create a placeholder email for Firebase Auth.
+    // Basic Verification Check
+    if (isEmail) {
+      const emailRegex = /\S+@\S+\.\S+/;
+      if (!emailRegex.test(cleanIdentifier)) {
+        Alert.alert("Error", "Please enter a valid email address.");
+        return;
+      }
+    } else {
+      // If not email, check if it's a valid phone length (at least 10 digits)
+      const phoneDigits = cleanIdentifier.replace(/\D/g, "");
+      if (phoneDigits.length < 10) {
+        Alert.alert("Error", "Please enter a valid 10-digit phone number.");
+        return;
+      }
+    }
+
     const emailToAuth = isEmail 
-      ? identifier.trim().toLowerCase() 
-      : `${identifier.trim()}@payup-placeholder.com`;
+      ? cleanIdentifier.toLowerCase() 
+      : `${cleanIdentifier}@payup-placeholder.com`;
     
-    // If it's not an email, we treat it as the phone number.
-    const phoneNumber = isEmail ? "" : identifier.trim();
+    const phoneNumber = isEmail ? "" : cleanIdentifier;
 
     try {
-      // Pass all 4 arguments to the updated signUp service
-      await signUp(emailToAuth, password, username, phoneNumber);
+      await signUp(emailToAuth, cleanPassword, cleanUsername, phoneNumber);
       router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Sign Up Error", error.message);
@@ -42,9 +64,7 @@ export default function SignUpScreen() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingVertical: 40 }}>
           
           <View style={{ alignItems: 'center', marginBottom: 48, width: '100%' }}>
-            <Text style={{ fontSize: 72, fontWeight: '900', color: 'black', textAlign: 'center' }}>
-              PayUp
-            </Text>
+            <Text style={{ fontSize: 72, fontWeight: '900', color: 'black', textAlign: 'center' }}>PayUp</Text>
             <Text style={{ fontSize: 32, fontWeight: '700', color: '#1f2937', marginTop: 4 }}>Sign Up</Text>
           </View>
 
@@ -67,7 +87,6 @@ export default function SignUpScreen() {
                 value={identifier}
                 onChangeText={setIdentifier}
                 autoCapitalize="none"
-                // Changed to 'default' so users can type letters (email) or numbers (phone)
                 keyboardType="default" 
                 placeholderTextColor="#9ca3af"
                 style={{ borderWidth: 2, borderColor: '#e5e7eb', padding: 20, borderRadius: 16, color: 'black', backgroundColor: '#f9fafb', fontSize: 18 }}
@@ -97,8 +116,7 @@ export default function SignUpScreen() {
 
           <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 40 }}>
             <Text style={{ color: '#6b7280', textAlign: 'center', fontSize: 18 }}>
-              {"Already have an account? "} 
-              <Text style={{ color: '#00966d', fontWeight: 'bold' }}>Login</Text>
+              Already have an account? <Text style={{ color: '#00966d', fontWeight: 'bold' }}>Login</Text>
             </Text>
           </TouchableOpacity>
         </View>

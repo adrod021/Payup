@@ -9,7 +9,7 @@ import { db } from "../firebase";
 import { useAuth } from "../hooks/useAuth";
 import { saveReceiptScanToSession } from "../receipt";
 import { createSessionAndInvite, joinSession } from "../services/invite";
-import { performOCR } from "../services/ocrService";
+import { performOCR, ScannedItem } from "../services/ocrService";
 
 export default function HomeScreen() {
   const [showOptions, setShowOptions] = useState(false); 
@@ -94,8 +94,13 @@ export default function HomeScreen() {
         setIsCreating(true); 
         try {
           const imageUri = result.assets[0].uri;
-          const rawText = await performOCR(imageUri); 
-          await saveReceiptScanToSession(sessionId, imageUri, rawText);
+          
+          // performOCR returns the structured ScannedItem[] array
+          const scannedItems: ScannedItem[] = await performOCR(imageUri); 
+          
+          // UPDATED: Removed imageUri to match the Free-Tier saveReceiptScanToSession function
+          await saveReceiptScanToSession(sessionId, scannedItems);
+          
           router.push({ pathname: '/manual_split', params: { sessionId } });
         } catch (err) {
           console.error("Scan Process Error:", err); 
@@ -108,7 +113,7 @@ export default function HomeScreen() {
         isScanning.current = false;
       }
     } else {
-      await updateDoc(doc(db, "sessions", sessionId), { status: mode, stage: 'creating' });
+      await updateDoc(doc(db, "sessions", sessionId), { status: mode, stage: 'setup' });
       if (mode === 'itemized') {
         router.push({ pathname: '/manual_split', params: { sessionId, method } });
       } else {

@@ -1,27 +1,17 @@
-// app/services/ocrService.ts
-
 /**
- * HELPER FUNCTIONS (Logic from ocr.ts)
+ * HELPER FUNCTIONS
  * Strips symbols and extra formatting to turn a currency string into a valid number.
  */
 export function parseCurrency(raw: string): number | null {
   if (raw == null) return null;
-
-  const cleaned = raw
-    .toString()
-    .trim()
-    // Removes currency symbols and spaces to leave only digits and decimals
+  const cleaned = raw.toString().trim()
     .replace(/[$€£¥₹]/g, '')
     .replace(/[\s]/g, '')
     .replace(/,/g, '')
-    // Handles OCR errors where multiple periods might be detected
     .replace(/(\..*)\./g, '$1');
-
   if (cleaned === '') return null;
-
   const parsed = Number(cleaned);
-  if (Number.isNaN(parsed)) return null;
-  return parsed;
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
 /**
@@ -29,29 +19,38 @@ export function parseCurrency(raw: string): number | null {
  */
 export function extractFirstCurrency(text: string): number | null {
   if (!text) return null;
-  // Uses backslashes (\d, \s) so the engine recognizes digits and spaces
   const match = text.match(/[$€£¥₹]?\s*\d{1,3}(?:,\d{3})*(?:\.\d+)?/);
-  if (!match) return null;
-  return parseCurrency(match[0]);
+  return match ? parseCurrency(match[0]) : null;
 }
 
 /**
- * CORE OCR SCANNING FUNCTION
- * This is the bridge between the camera image and the text.
+ * INTERFACE FOR UI
+ * This matches what receipt.ts and index.tsx expect.
  */
-export const performOCR = async (imageUri: string): Promise<string> => {
+export interface ScannedItem {
+  id: string;
+  name: string;
+  price: number;
+}
+
+/**
+ * CORE OCR SCANNING FUNCTION (PROTOTYPE VERSION)
+ * Simulates a delay and returns structured data for the UI.
+ */
+export const performOCR = async (imageUri: string): Promise<ScannedItem[]> => {
   try {
-    console.log("Starting OCR process for:", imageUri);
+    console.log("Starting Prototype OCR process for:", imageUri);
     
-    // Simulate a 2-second processing delay for the UI loader
+    // Simulate a 2-second processing delay for testing the Loading Spinner
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    /**
-     * PROTOTYPE NOTE: 
-     * When the team integrates the real Google ML Kit, 
-     * this hardcoded string will be replaced by the actual detected text.
-     */
-    return "GROCERY STORE\nApples $4.50\nBread $2.00\nTotal $6.50"; 
+    // Prototype data with unique IDs
+    return [
+      { id: Math.random().toString(36).substring(7), name: "Apples", price: 4.50 },
+      { id: Math.random().toString(36).substring(7), name: "Bread", price: 2.00 },
+      { id: Math.random().toString(36).substring(7), name: "Milk", price: 3.25 },
+      { id: Math.random().toString(36).substring(7), name: "Eggs", price: 5.00 }
+    ];
   } catch (error) {
     console.error("OCR Error:", error);
     throw new Error("Could not read receipt");
