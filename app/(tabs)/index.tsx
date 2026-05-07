@@ -1,29 +1,32 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from "expo-router";
-import { and, collection, deleteDoc, doc, onSnapshot, or, query, updateDoc, where } from "firebase/firestore";
-import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { and, collection, deleteDoc, doc, limit, onSnapshot, or, orderBy, query, updateDoc, where } from "firebase/firestore";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { db } from "../firebase";
 import { useAuth } from "../hooks/useAuth";
+import { saveReceiptScanToSession } from "../receipt";
 import { createSessionAndInvite, joinSession } from "../services/invite";
+import { performOCR } from "../services/ocrService";
 
 export default function HomeScreen() {
   const [showOptions, setShowOptions] = useState(false); 
   const [showInvite, setShowInvite] = useState(false);   
   const [isConnecting, setIsConnecting] = useState(false); 
   const [showSplitMethods, setShowSplitMethods] = useState(false);
-
   const [invites, setInvites] = useState<any[]>([]);
   const [isLoadingInvites, setIsLoadingInvites] = useState(true);
-
   const [inviteInput, setInviteInput] = useState(""); 
   const [isCreating, setIsCreating] = useState(false); 
+  const [isSendingInvite, setIsSendingInvite] = useState(false); 
   const [isRoomCreated, setIsRoomCreated] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null); 
   const [sessionHostId, setSessionHostId] = useState<string | null>(null);
   const [joinedCount, setJoinedCount] = useState(1); 
   
+  const isScanning = useRef(false); 
   const router = useRouter();
   const { user } = useAuth(); 
 
@@ -40,9 +43,10 @@ export default function HomeScreen() {
   }, [isConnecting, showInvite, showSplitMethods]);
 
   const handleAddParticipant = async () => {
-    if (!inviteInput || !user || isCreating) return;
+    if (!inviteInput || !user || isSendingInvite) return;
     const newParticipant = inviteInput.trim();
-    setIsCreating(true);
+    setIsSendingInvite(true); 
+    
     try {
       const id = await createSessionAndInvite(user, [newParticipant], sessionId || undefined);
       if (!sessionId) {
@@ -50,10 +54,12 @@ export default function HomeScreen() {
         setSessionHostId(user.uid);
       }
       setInviteInput("");
-    } catch {
+      Alert.alert("Invite Sent", `A request has been sent to ${newParticipant}.`);
+    } catch (err) {
+      console.error("Invite Error:", err);
       Alert.alert("Error", "Could not send invite.");
     } finally {
-      setIsCreating(false);
+      setIsSendingInvite(false);
     }
   };
 
@@ -64,19 +70,50 @@ export default function HomeScreen() {
       setSessionId(invite.sessionId);
       setShowInvite(true);
       setIsRoomCreated(true);
-    } catch {
+    } catch (err) {
+      console.error("Join Error:", err);
       Alert.alert("Error", "Could not join session.");
     }
   };
 
   const startMode = async (mode: 'itemized' | 'roulette', method?: 'scan' | 'manual') => {
     if (!sessionId) return;
-    await updateDoc(doc(db, "sessions", sessionId), { status: mode, stage: 'creating' });
-    
-    if (mode === 'itemized') {
-      router.push({ pathname: '/manual_split', params: { sessionId, method } });
+
+    if (method === 'scan') {
+      isScanning.current = true;
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert("Permission Denied", "Camera access is required.");
+        isScanning.current = false;
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.7 });
+
+      if (!result.canceled) {
+        setIsCreating(true); 
+        try {
+          const imageUri = result.assets[0].uri;
+          const rawText = await performOCR(imageUri); 
+          await saveReceiptScanToSession(sessionId, imageUri, rawText);
+          router.push({ pathname: '/manual_split', params: { sessionId } });
+        } catch (err) {
+          console.error("Scan Process Error:", err); 
+          Alert.alert("Error", "Failed to process receipt.");
+        } finally {
+          setIsCreating(false);
+          isScanning.current = false;
+        }
+      } else {
+        isScanning.current = false;
+      }
     } else {
-      router.push({ pathname: '/splitpay/create/roulette_spin', params: { sessionId } });
+      await updateDoc(doc(db, "sessions", sessionId), { status: mode, stage: 'creating' });
+      if (mode === 'itemized') {
+        router.push({ pathname: '/manual_split', params: { sessionId, method } });
+      } else {
+        router.push({ pathname: '/splitpay/create/roulette_spin', params: { sessionId } });
+      }
     }
   };
 
@@ -84,7 +121,17 @@ export default function HomeScreen() {
     if (!user) return;
     const email = user.email?.toLowerCase().trim() || "no-email";
     const phone = user.phoneNumber || "no-phone";
-    const qInvites = query(collection(db, "invites"), and(where("status", "==", "pending"), or(where("invitedEmail", "==", email), where("invitedPhone", "==", phone))));
+    
+    const qInvites = query(
+      collection(db, "invites"), 
+      and(
+        where("status", "==", "pending"), 
+        or(where("invitedEmail", "==", email), where("invitedPhone", "==", phone))
+      ),
+      orderBy("createdAt", "desc"),
+      limit(1)
+    );
+
     const unsubInvites = onSnapshot(qInvites, (snapshot) => { 
       setInvites(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))); 
       setIsLoadingInvites(false); 
@@ -99,9 +146,8 @@ export default function HomeScreen() {
         const data = docSnap.data();
         setJoinedCount(data.participants?.length || 1);
         setSessionHostId(data.hostId);
-
         const isHost = user?.uid === data.hostId;
-        if (!isHost) {
+        if (!isHost && !isScanning.current) {
           if (data.status === "itemized") {
             router.push({ pathname: '/manual_split', params: { sessionId } });
           } else if (data.status === "roulette") {
@@ -116,7 +162,7 @@ export default function HomeScreen() {
   }, [sessionId, user, router, handleBack]);
 
   const isHost = !sessionId || user?.uid === sessionHostId;
-  const canStart = joinedCount > 1; // Requirement: At least one person accepted the invite
+  const canStart = joinedCount > 1;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
@@ -127,25 +173,30 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {isConnecting ? (
+        {isCreating ? (
+           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+             <ActivityIndicator size="large" color="#00966d" />
+             <Text style={{ marginTop: 15, fontWeight: '700' }}>Processing Receipt...</Text>
+           </View>
+        ) : isConnecting ? (
           <View style={{ flex: 1, justifyContent: 'center' }}>
             <Text style={{ fontSize: 24, fontWeight: '900', textAlign: 'center', marginBottom: 20 }}>Waiting for Invites</Text>
-            <View style={{ width: '100%', backgroundColor: '#f3f4f6', borderRadius: 40, padding: 24, minHeight: 300 }}>
+            <View style={{ width: '100%', backgroundColor: '#f3f4f6', borderRadius: 40, padding: 24, minHeight: 300, justifyContent: 'center' }}>
               {isLoadingInvites ? <ActivityIndicator color="#00966d" size="large" /> : (
                 invites.length > 0 ? (
-                  <ScrollView>
-                    {invites.map(i => (
-                      <View key={i.id} style={{ backgroundColor: 'white', padding: 16, borderRadius: 20, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ fontWeight: '800', flex: 1 }}>{i.hostName}&apos;s Room</Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ backgroundColor: 'white', padding: 16, borderRadius: 20, marginTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ fontWeight: '800', flex: 1 }}>{invites[0].hostName}&apos;s Room</Text>
                         <View style={{ flexDirection: 'row' }}>
-                          <TouchableOpacity onPress={() => handleAcceptInvite(i)} style={{ marginRight: 15 }}><Ionicons name="checkmark-circle" size={32} color="#00966d" /></TouchableOpacity>
-                          <TouchableOpacity onPress={() => deleteDoc(doc(db, "invites", i.id))}><Ionicons name="close-circle" size={32} color="#ef4444" /></TouchableOpacity>
+                          <TouchableOpacity onPress={() => handleAcceptInvite(invites[0])} style={{ marginRight: 15 }}><Ionicons name="checkmark-circle" size={32} color="#00966d" /></TouchableOpacity>
+                          <TouchableOpacity onPress={() => deleteDoc(doc(db, "invites", invites[0].id))}><Ionicons name="close-circle" size={32} color="#ef4444" /></TouchableOpacity>
                         </View>
                       </View>
-                    ))}
-                  </ScrollView>
+                    </View>
                 ) : (
-                  <Text style={{ color: '#6b7280', textAlign: 'center', fontWeight: '600', fontSize: 16 }}>No Invites Yet!</Text>
+                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ color: '#6b7280', textAlign: 'center', fontWeight: '600', fontSize: 16 }}>No Invites Yet!</Text>
+                  </View>
                 )
               )}
             </View>
@@ -171,7 +222,7 @@ export default function HomeScreen() {
             ) : (
               <View style={{ width: '100%', alignItems: 'center' }}>
                 <Text style={{ fontSize: 20, fontWeight: '800', marginBottom: 10 }}>
-                   {sessionId ? `Joined: ${joinedCount}` : "Invite via Email/Phone"}
+                    {sessionId ? `Joined: ${joinedCount}` : "Invite via Email/Phone"}
                 </Text>
 
                 {isRoomCreated ? (
@@ -206,9 +257,21 @@ export default function HomeScreen() {
                 ) : (
                   <>
                     <View style={{ flexDirection: 'row', marginBottom: 20 }}>
-                      <TextInput placeholder="Email or Phone" value={inviteInput} onChangeText={setInviteInput} style={{ flex: 1, backgroundColor: '#f3f4f6', padding: 15, borderRadius: 15 }} />
-                      <TouchableOpacity onPress={handleAddParticipant} style={{ backgroundColor: '#00966d', padding: 15, borderRadius: 15, marginLeft: 10 }}>
-                        <Ionicons name="add" size={24} color="white" />
+                      <TextInput 
+                        placeholder="Email or Phone" 
+                        value={inviteInput} 
+                        onChangeText={setInviteInput} 
+                        style={{ flex: 1, backgroundColor: '#f3f4f6', padding: 15, borderRadius: 15 }} 
+                      />
+                      <TouchableOpacity 
+                        onPress={handleAddParticipant} 
+                        style={{ backgroundColor: '#00966d', padding: 15, borderRadius: 15, marginLeft: 10, width: 54, height: 54, justifyContent: 'center', alignItems: 'center' }}
+                      >
+                        {isSendingInvite ? (
+                          <ActivityIndicator color="white" size="small" />
+                        ) : (
+                          <Ionicons name="add" size={24} color="white" />
+                        )}
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity onPress={() => setIsRoomCreated(true)} disabled={!canStart} style={{ backgroundColor: canStart ? '#00966d' : '#9ca3af', padding: 20, borderRadius: 16, width: '100%' }}>

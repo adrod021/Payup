@@ -52,12 +52,11 @@ export default function ManualSplitScreen() {
       setSessionData(data);
       setItems(data.items || []);
       
-      // Navigate forward to summary only if the stage is set to summary
       if (data.stage === 'summary' && !navigationLock.current) {
         navigationLock.current = true;
         router.push({pathname: './final_split', params: { sessionId } });
       } else if (data.stage !== 'summary') {
-        navigationLock.current = false; // Reset lock if we move back
+        navigationLock.current = false; 
       }
     });
     return () => unsub();
@@ -104,6 +103,11 @@ export default function ManualSplitScreen() {
     };
     await updateDoc(doc(db, "sessions", sessionId!), { items: arrayUnion(item) });
     setNewItemName(''); setNewItemPrice('');
+  };
+
+  const removeItem = async (itemId: string) => {
+    const updatedItems = items.filter(item => item.id !== itemId);
+    await updateDoc(doc(db, "sessions", sessionId!), { items: updatedItems });
   };
 
   const toggleItemSelection = async (itemId: string) => {
@@ -167,17 +171,31 @@ export default function ManualSplitScreen() {
           const isSelected = item.selectedBy?.includes(user?.uid);
           const isTaken = (item.selectedBy?.length || 0) > 0 && !isSelected;
           return (
-            <TouchableOpacity key={item.id} onPress={() => sessionData.stage === 'selecting' && !isTaken && toggleItemSelection(item.id)}
+            <TouchableOpacity 
+              key={item.id} 
+              onPress={() => sessionData.stage === 'selecting' && !isTaken && toggleItemSelection(item.id)}
               style={{ 
                 backgroundColor: isSelected ? '#ecfdf5' : (isTaken ? '#f3f4f6' : 'white'), 
                 padding: 18, borderRadius: 15, marginBottom: 10, borderWidth: 1, 
                 borderColor: isSelected ? '#10b981' : '#f3f4f6' 
               }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontWeight: '700', color: isTaken ? '#9ca3af' : 'black' }}>{item.name}</Text>
-                <Text style={{ fontWeight: '900', color: isTaken ? '#9ca3af' : 'black' }}>${item.price.toFixed(2)}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '700', color: isTaken ? '#9ca3af' : 'black' }}>{item.name}</Text>
+                  {isTaken && <Text style={{ fontSize: 12, color: '#9ca3af' }}>{item.selectedByUsername?.[0]} claimed this</Text>}
+                </View>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ fontWeight: '900', color: isTaken ? '#9ca3af' : 'black' }}>${item.price.toFixed(2)}</Text>
+                  
+                  {/* Trash icon enabled for both OCR review and Manual creation phases */}
+                  {isHost && sessionData.stage !== 'selecting' && (
+                    <TouchableOpacity onPress={() => removeItem(item.id)} style={{ marginLeft: 15 }}>
+                      <Ionicons name="trash-outline" size={22} color="#ef4444" />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-              {isTaken && <Text style={{ fontSize: 12, color: '#9ca3af' }}>{item.selectedByUsername?.[0]} claimed this</Text>}
             </TouchableOpacity>
           );
         })}

@@ -1,7 +1,7 @@
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db, storage } from "./firebase";
-import { extractFirstCurrency } from "./utils/ocr";
+import { extractFirstCurrency } from "./services/ocrService";
 
 export type ParsedReceiptItem = {
   id: string;

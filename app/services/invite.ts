@@ -1,5 +1,6 @@
 import {
   addDoc,
+  arrayRemove,
   arrayUnion,
   collection,
   deleteDoc,
@@ -8,12 +9,77 @@ import {
   getDocs,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
   writeBatch
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { User as AppUser } from "../types";
+
+/**
+ * FRIEND SYSTEM FUNCTIONS
+ */
+
+export async function sendFriendRequest(currentUser: AppUser, targetIdentifier: string) {
+  const identifier = targetIdentifier.trim().toLowerCase();
+  
+  if (identifier === currentUser.email?.toLowerCase() || identifier === currentUser.phoneNumber) {
+    throw new Error("You cannot add yourself.");
+  }
+
+  const usersRef = collection(db, "users");
+  
+  // Try searching by email
+  let qUser = query(usersRef, where("email", "==", identifier));
+  let userSnapshot = await getDocs(qUser);
+
+  // If not found, try searching by phone
+  if (userSnapshot.empty) {
+    qUser = query(usersRef, where("phoneNumber", "==", identifier));
+    userSnapshot = await getDocs(qUser);
+  }
+
+  if (userSnapshot.empty) {
+    throw new Error("User not found. Ensure they have an account.");
+  }
+
+  const targetDoc = userSnapshot.docs[0];
+  const targetData = targetDoc.data();
+  const targetUid = targetDoc.id;
+  const targetUsername = targetData.username || "User";
+
+  // Unique ID for the request to prevent duplicates
+  const requestId = `${currentUser.uid}_${targetUid}`;
+  const requestRef = doc(db, "friendRequests", requestId);
+
+  await setDoc(requestRef, {
+    fromUid: currentUser.uid,
+    fromUsername: currentUser.username || "User",
+    fromIdentifier: currentUser.email || currentUser.phoneNumber,
+    toUid: targetUid,
+    toUsername: targetUsername,
+    toIdentifier: identifier,
+    status: "pending",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function acceptFriendRequest(requestId: string) {
+  const requestRef = doc(db, "friendRequests", requestId);
+  await updateDoc(requestRef, {
+    status: "accepted",
+    acceptedAt: serverTimestamp(),
+  });
+}
+
+export async function declineInvite(inviteId: string) {
+  await deleteDoc(doc(db, "invites", inviteId));
+}
+
+/**
+ * SESSION & BILLING FUNCTIONS
+ */
 
 export async function createSessionAndInvite(
   hostUser: AppUser, 
@@ -22,7 +88,7 @@ export async function createSessionAndInvite(
 ) {
   let sessionId = existingSessionId;
 
-  // 1. Create session if it doesn't exist
+  // 1. Create session if it doesn't exist (keeping your metadata updates)
   if (!sessionId) {
     const sessionRef = await addDoc(collection(db, "sessions"), {
       hostId: hostUser.uid, 
@@ -43,7 +109,6 @@ export async function createSessionAndInvite(
   const invitePromises = participantIdentifiers.map(async (identifier) => {
     const cleanIdentifier = identifier.toLowerCase().trim();
 
-    // Check for existing pending invites for this person in this session
     const q = query(
       collection(db, "invites"),
       where("sessionId", "==", sessionId),
@@ -53,14 +118,12 @@ export async function createSessionAndInvite(
     
     const existingInvites = await getDocs(q);
     
-    // Delete previous invites to avoid duplicates
     const batch = writeBatch(db);
     existingInvites.forEach((oldDoc) => {
       batch.delete(oldDoc.ref);
     });
     await batch.commit();
 
-    // Send the new invite
     return addDoc(collection(db, "invites"), {
       sessionId: sessionId,
       invitedBy: hostUser.uid,
@@ -98,19 +161,20 @@ export async function joinSession(sessionId: string, userId: string, inviteId: s
   });
 }
 
-/**
- * Force closes the session and deletes all associated invites
- */
+export async function leaveSession(sessionId: string, userId: string) {
+  const sessionRef = doc(db, "sessions", sessionId);
+  await updateDoc(sessionRef, {
+    participants: arrayRemove(userId)
+  });
+}
+
 export async function closeSession(sessionId: string) {
-  // Find all invites linked to this session
   const q = query(collection(db, "invites"), where("sessionId", "==", sessionId));
   const inviteSnaps = await getDocs(q);
   
-  // Use a batch to delete all invites at once
   const batch = writeBatch(db);
   inviteSnaps.forEach((d) => batch.delete(d.ref));
+  batch.delete(doc(db, "sessions", sessionId));
+  
   await batch.commit();
-
-  // Finally delete the session itself
-  await deleteDoc(doc(db, "sessions", sessionId));
 }
