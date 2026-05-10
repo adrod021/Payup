@@ -49,30 +49,35 @@ export async function sendFriendRequest(currentUser: AppUser, targetIdentifier: 
 
 export async function createSessionAndInvite(hostUser: AppUser, participantIdentifiers: string[], existingSessionId?: string) {
   let sessionId = existingSessionId;
+  
+  // If no session exists, create one
   if (!sessionId) {
     const sessionRef = await addDoc(collection(db, "sessions"), {
       hostId: hostUser.uid, 
-      hostName: hostUser.username,
+      hostName: hostUser.username || "Host",
       status: "waiting", 
       stage: "setup", 
       createdAt: serverTimestamp(),
       participants: [hostUser.uid],
       participantUsernames: [hostUser.username || "Host"],
-      participantColors: [ROULETTE_COLORS[0]] // Host gets color 1
+      participantColors: [ROULETTE_COLORS[0]] 
     });
     sessionId = sessionRef.id;
   }
 
+  // Map through identifiers and create invite documents
   const invitePromises = participantIdentifiers.map(async (identifier) => {
     const cleanId = identifier.toLowerCase().trim();
     return addDoc(collection(db, "invites"), {
       sessionId,
       invitedBy: hostUser.uid,
+      hostName: hostUser.username || "Host", // CRITICAL: This allows the recipient to see who invited them
       invitedEmail: cleanId, 
       status: "pending",
       createdAt: serverTimestamp()
     });
   });
+  
   await Promise.all(invitePromises);
   return sessionId;
 }
@@ -84,6 +89,8 @@ export async function joinSession(sessionId: string, userId: string, inviteId: s
   const sessionRef = doc(db, "sessions", sessionId);
   const sessionSnap = await getDoc(sessionRef);
   
+  if (!sessionSnap.exists()) throw new Error("Session not found");
+
   const currentParticipants = sessionSnap.data()?.participants || [];
   const assignedColor = ROULETTE_COLORS[currentParticipants.length % ROULETTE_COLORS.length];
 
