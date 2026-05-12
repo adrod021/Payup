@@ -4,6 +4,7 @@ import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+// static information screen guiding users on how to join sessions via invites
 export default function SplitPayEntryScreen() {
   const router = useRouter();
 

@@ -4,10 +4,10 @@ import { deleteDoc, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import { Alert, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-// FIXED PATHS HERE:
 import { db } from "../../firebase";
 import { useAuth } from "../../hooks/useAuth";
 
+// screen for participant lobby management and real-time member updates
 export default function JoinLobbyScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -20,6 +20,7 @@ export default function JoinLobbyScreen() {
 
   const isHost = user?.uid === sessionData?.hostId;
 
+  // listens for session status changes to auto-navigate to the billing stage
   useEffect(() => {
     if (!sessionId) {
       router.back();
@@ -45,6 +46,7 @@ export default function JoinLobbyScreen() {
     return () => unsubscribe();
   }, [sessionId, router]);
 
+  // allows the host to remove a specific participant from the session
   const handleKick = (targetId: string, targetName: string) => {
     Alert.alert("Kick Member", `Remove ${targetName}?`, [
       { text: "Cancel" },
@@ -68,6 +70,7 @@ export default function JoinLobbyScreen() {
     ]);
   };
 
+  // handles closing the session for all or leaving individually
   const handleLeaveOrClose = async () => {
     if (isHost) {
       Alert.alert("Close Session", "End for everyone?", [
@@ -123,12 +126,12 @@ export default function JoinLobbyScreen() {
       <Modal visible={showSettings} transparent animationType="slide">
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <View style={{ backgroundColor: 'white', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 30 }}>
-            <div style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, display: 'flex' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
               <Text style={{ fontSize: 22, fontWeight: '800' }}>Session Settings</Text>
               <TouchableOpacity onPress={() => setShowSettings(false)}>
                 <Ionicons name="close" size={28} />
               </TouchableOpacity>
-            </div>
+            </View>
             
             {isHost ? (
               <View>

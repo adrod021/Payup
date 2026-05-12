@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from './firebase';
 import { useAuth } from './hooks/useAuth';
 
+// screen for the host to create a bill list and participants to claim items
 export default function ManualSplitScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const { user } = useAuth();
@@ -21,6 +22,7 @@ export default function ManualSplitScreen() {
   const [myUsername, setMyUsername] = useState('New User');
   const [showSettings, setShowSettings] = useState(false);
 
+  // retrieves and syncs the current user's profile display name
   useEffect(() => {
     if (!user?.uid) return;
     const unsub = onSnapshot(doc(db, "users", user.uid), (snap) => {
@@ -29,6 +31,7 @@ export default function ManualSplitScreen() {
     return () => unsub();
   }, [user]);
 
+  // listens to the bill session and manages auto-navigation and cleanup
   useEffect(() => {
     if (!sessionId || !user?.uid) return;
 
@@ -39,12 +42,14 @@ export default function ManualSplitScreen() {
       }
       const data = snap.data();
       
+      // automatically deletes session if everyone leaves except the host
       if (data.participants && data.participants.length < 2) {
         deleteDoc(doc(db, "sessions", sessionId));
         router.replace('/(tabs)');
         return;
       }
 
+      // redirects unauthorized users back to the home screen
       if (data.participants && !data.participants.includes(user.uid)) {
         router.replace('/(tabs)');
         return;
@@ -54,6 +59,7 @@ export default function ManualSplitScreen() {
       setItems(data.items || []);
       if (data.tax !== undefined) setTax(data.tax.toString()); // Keep tax in sync
       
+      // handles the transition to the final split screen once the host proceeds
       if (data.stage === 'summary' && !navigationLock.current) {
         navigationLock.current = true;
         router.push({pathname: './final_split', params: { sessionId } });
@@ -66,10 +72,12 @@ export default function ManualSplitScreen() {
 
   const isHost = user?.uid === sessionData?.hostId;
 
+  // moves the session back to the 'setup' phase
   const handleBackToSetup = async () => {
     await updateDoc(doc(db, "sessions", sessionId!), { stage: 'setup' });
   };
 
+  // asks for confirmation before permanently deleting the session
   const confirmCloseSession = () => {
     Alert.alert("Close Session", "End this session for everyone?", [
       { text: "Cancel", style: "cancel" },
@@ -80,6 +88,7 @@ export default function ManualSplitScreen() {
     ]);
   };
 
+  // advances the session through its lifecycle (creation -> claiming -> summary)
   const handleProceed = async () => {
     if (!sessionData) return;
     if (sessionData.stage === 'selecting') {
@@ -98,6 +107,7 @@ export default function ManualSplitScreen() {
     }
   };
 
+  // appends a new item object to the firestore items array
   const addItem = async () => {
     if (!newItemName || !newItemPrice) return;
     const item = {
@@ -111,11 +121,13 @@ export default function ManualSplitScreen() {
     setNewItemName(''); setNewItemPrice('');
   };
 
+  // removes an item from the list by filtering the items array
   const removeItem = async (itemId: string) => {
     const updatedItems = items.filter(item => item.id !== itemId);
     await updateDoc(doc(db, "sessions", sessionId!), { items: updatedItems });
   };
 
+  // handles the logic for a user claiming or unclaiming an item
   const toggleItemSelection = async (itemId: string) => {
     const updatedItems = items.map(item => {
       if (item.id === itemId) {
@@ -131,6 +143,7 @@ export default function ManualSplitScreen() {
     await updateDoc(doc(db, "sessions", sessionId!), { items: updatedItems });
   };
 
+  // allows the host to remove a participant and their contact info
   const handleKick = async (targetUid: string, index: number) => {
     if (!sessionData) return;
     const update = {

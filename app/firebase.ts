@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAuth, initializeAuth } from 'firebase/auth';
+import { Auth, getAuth, initializeAuth } from 'firebase/auth';
 // Deep import to bypass the TypeScript export error
 // @ts-ignore
 import { getReactNativePersistence } from '@firebase/auth';
@@ -15,9 +15,11 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
+// initializes firebase app instance
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-let auth;
+// initializes auth with persistence for react native
+let auth: Auth;
 try {
   auth = getAuth(app);
 } catch {
@@ -27,6 +29,7 @@ try {
   });
 }
 
+// initializes firestore database instance
 const db = getFirestore(app);
 
 // Removed 'storage' export since you are on the Free Tier

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from './firebase';
 import { useAuth } from './hooks/useAuth';
 
+// displays the final bill breakdown and proportional tax sharing for all participants
 export default function FinalSplitScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const { user } = useAuth(); 
@@ -14,6 +15,7 @@ export default function FinalSplitScreen() {
   const [summaries, setSummaries] = useState<any[]>([]);
   const [sessionData, setSessionData] = useState<any>(null);
 
+  // recalculates the proportional totals whenever session data changes
   useEffect(() => {
     if (!sessionId) return;
     const unsub = onSnapshot(doc(db, "sessions", sessionId), (snap) => {
@@ -23,6 +25,7 @@ export default function FinalSplitScreen() {
       }
       const data = snap.data();
       
+      // ensures users stay on the summary page unless the host moves it back
       if (data.stage !== 'summary') {
         router.replace({ pathname: '/manual_split', params: { sessionId } });
         return;
@@ -34,9 +37,10 @@ export default function FinalSplitScreen() {
       let subtotal = 0;
       data.items?.forEach((item: any) => subtotal += item.price);
 
-      // Tax Ratio: How much tax is owed per $1 spent
+      // Tax Ratio: How much tax is owed per $1 spent (the "tax multiplier")
       const taxRatio = subtotal > 0 ? totalTax / subtotal : 0;
 
+      // initialize a map to store calculated totals for each user
       const userMap: any = {};
       data.participants.forEach((uid: string, index: number) => {
         userMap[uid] = { 
@@ -48,6 +52,7 @@ export default function FinalSplitScreen() {
         };
       });
 
+      // distributes item prices (split by number of people who claimed them)
       data.items?.forEach((item: any) => {
         item.selectedBy?.forEach((uid: string) => {
           if (userMap[uid]) {
@@ -58,7 +63,7 @@ export default function FinalSplitScreen() {
         });
       });
 
-      // Apply the proportional tax to each person
+      // Apply the proportional tax to each person's specific subtotal
       Object.keys(userMap).forEach(uid => {
         userMap[uid].taxShare = userMap[uid].personalSubtotal * taxRatio;
         userMap[uid].total = userMap[uid].personalSubtotal + userMap[uid].taxShare;
@@ -71,10 +76,12 @@ export default function FinalSplitScreen() {
 
   const isHost = user?.uid === sessionData?.hostId;
 
+  // moves the session back to the item selection stage
   const handleBackToSelecting = async () => {
     await updateDoc(doc(db, "sessions", sessionId!), { stage: 'selecting' });
   };
 
+  // ends the session for everyone or allows a single user to exit
   const handleEndSession = () => {
     if (isHost) {
       Alert.alert("End Session", "This will close the session for everyone. Are you sure?", [

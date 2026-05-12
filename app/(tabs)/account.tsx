@@ -11,11 +11,13 @@ import { db } from "../firebase";
 import { useAuth } from "../hooks/useAuth";
 import { logout } from "../services/auth";
 
+// handles user profile display, editing, and account management actions
 export default function AccountScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [extraData, setExtraData] = useState<any>(null);
 
+  // attaches a real-time listener to the user's document in firestore
   useEffect(() => {
     const currentUser = user as any;
     if (!currentUser?.uid) return;
@@ -33,6 +35,7 @@ export default function AccountScreen() {
     return () => unsubscribe();
   }, [user]);
 
+  // opens a prompt to update specific profile fields in the database
   const handleEditField = (field: string, currentVal: string) => {
     const currentUser = user as any;
     if (!currentUser?.uid) return;
@@ -61,6 +64,7 @@ export default function AccountScreen() {
     );
   };
 
+  // logs the user out and redirects to the landing page
   const handleLogout = async () => {
     try {
       await logout();
@@ -71,6 +75,7 @@ export default function AccountScreen() {
   };
 
   // NEW: Password Reset Logic
+  // sends a password recovery email to the registered address
   const handleResetPassword = async () => {
     if (!user?.email) {
       Alert.alert("Error", "No email associated with this account.");
@@ -85,6 +90,7 @@ export default function AccountScreen() {
   };
 
   // NEW: Delete Account Logic
+  // permanently removes user data from firestore and firebase auth
   const handleDeleteAccount = async () => {
     const auth = getAuth();
     const currentUser = auth.currentUser;
@@ -123,6 +129,7 @@ export default function AccountScreen() {
     );
   };
 
+  // component for displaying individual profile attributes with optional edit button
   const ProfileRow = ({ 
     label, 
     value, 
@@ -156,6 +163,7 @@ export default function AccountScreen() {
     </View>
   );
 
+  // logic to filter out placeholder emails used by anonymous or phone auth
   const displayEmail = extraData?.email || 
     (user?.email?.includes("payup-placeholder.com") ? "Not linked" : user?.email) || 
     "Not linked";

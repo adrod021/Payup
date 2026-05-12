@@ -9,6 +9,7 @@ import {
 import { collection, doc, getDocs, query, setDoc, where } from "firebase/firestore";
 import { auth, db } from "../firebase";
 
+// handles user registration including duplicate checks and profile creation
 export async function signUp(
   email: string, 
   password: string, 
@@ -52,6 +53,7 @@ export async function signUp(
   return auth.currentUser!; 
 }
 
+// authenticates users via email or formatted phone placeholder
 export async function login(identifier: string, password: string): Promise<User> {
   const isEmail = identifier.includes('@');
   // Ensure lowercase for consistency
@@ -61,6 +63,7 @@ export async function login(identifier: string, password: string): Promise<User>
   return credential.user; 
 }
 
+// signs out the current user session
 export async function logout(): Promise<void> {
   await firebaseSignOut(auth);
 }

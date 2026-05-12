@@ -4,6 +4,10 @@ import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "reac
 import { SafeAreaView } from "react-native-safe-area-context";
 import { login } from "./services/auth";
 
+/**
+ * LOGIN SCREEN
+ * Handles user authentication using either email or phone number.
+ */
 export default function LoginScreen() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -11,19 +15,20 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     const cleanId = identifier.trim();
+    // Basic validation to prevent unnecessary network requests
     if (!cleanId || !password.trim()) {
       Alert.alert("Error", "Please enter your email/phone and password.");
       return;
     }
 
     try {
+      // Calls the auth service to sign in via Firebase
       await login(cleanId, password);
       router.replace("/(tabs)");
     } catch (error: any) {
-      // Logic to handle specific Firebase Error codes
+      // Translates technical Firebase error codes into user-friendly alerts
       let errorMessage = "An unexpected error occurred.";
 
-      // Firebase often returns 'auth/invalid-credential' for both wrong email and wrong password
       if (error.code === 'auth/invalid-credential') {
         errorMessage = "Invalid email/phone or password. Please try again.";
       } else if (error.code === 'auth/user-not-found') {
@@ -53,6 +58,7 @@ export default function LoginScreen() {
           </View>
           
           <View style={{ width: '100%' }}>
+            {/* Input field accepts both Email or Phone as the primary identifier */}
             <View style={{ marginBottom: 24, width: '100%' }}>
               <Text style={{ color: '#374151', fontWeight: '700', marginBottom: 8, fontSize: 18 }}>Email or Phone</Text>
               <TextInput

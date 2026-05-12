@@ -4,6 +4,10 @@ import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "reac
 import { SafeAreaView } from "react-native-safe-area-context";
 import { signUp } from "./services/auth";
 
+/**
+ * SIGN UP SCREEN
+ * Facilitates account creation and distinguishes between email and phone registrations.
+ */
 export default function SignUpScreen() {
   const [identifier, setIdentifier] = useState("");
   const [username, setUsername] = useState("");
@@ -15,20 +19,22 @@ export default function SignUpScreen() {
     const cleanUsername = username.trim();
     const cleanPassword = password.trim();
 
+    // Ensures no empty fields are submitted
     if (!cleanIdentifier || !cleanUsername || !cleanPassword) {
       Alert.alert("Error", "Please fill in all fields.");
       return;
     }
 
+    // Firebase Auth default requirement is at least 6 characters
     if (cleanPassword.length < 6) {
       Alert.alert("Error", "Password must be at least 6 characters.");
       return;
     }
 
-    // Logic to separate email and phone number
+    // Detects if the user is signing up with an email or a phone number
     const isEmail = cleanIdentifier.includes("@");
     
-    // Basic Verification Check
+    // Front-end verification for data integrity
     if (isEmail) {
       const emailRegex = /\S+@\S+\.\S+/;
       if (!emailRegex.test(cleanIdentifier)) {
@@ -36,7 +42,7 @@ export default function SignUpScreen() {
         return;
       }
     } else {
-      // If not email, check if it's a valid phone length (at least 10 digits)
+      // Ensures phone numbers meet a minimum digit length
       const phoneDigits = cleanIdentifier.replace(/\D/g, "");
       if (phoneDigits.length < 10) {
         Alert.alert("Error", "Please enter a valid 10-digit phone number.");
@@ -44,6 +50,10 @@ export default function SignUpScreen() {
       }
     }
 
+    /**
+     * Firebase Auth requires an email. If the user provided a phone number,
+     * we generate a placeholder email to maintain account consistency.
+     */
     const emailToAuth = isEmail 
       ? cleanIdentifier.toLowerCase() 
       : `${cleanIdentifier}@payup-placeholder.com`;
@@ -51,6 +61,7 @@ export default function SignUpScreen() {
     const phoneNumber = isEmail ? "" : cleanIdentifier;
 
     try {
+      // Submits data to the auth service and directs user to the main app on success
       await signUp(emailToAuth, cleanPassword, cleanUsername, phoneNumber);
       router.replace("/(tabs)");
     } catch (error: any) {

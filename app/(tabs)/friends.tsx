@@ -18,6 +18,7 @@ interface Friend {
   status: 'pending_friend' | 'accepted'; 
 }
 
+// manages friend connections, requests, and the searchable friends list
 export default function FriendsScreen() {
   const [searchInput, setSearchInput] = useState(''); 
   const [pendingActivity, setPendingActivity] = useState<Friend[]>([]); 
@@ -27,6 +28,7 @@ export default function FriendsScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
+  // initializes real-time listeners for incoming requests and accepted friends
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -68,6 +70,7 @@ export default function FriendsScreen() {
     };
   }, [user, router]);
 
+  // moves request to accepted status and creates reciprocal friend documents
   const handleAcceptFriend = async (request: Friend) => {
     try {
       if (!user?.uid) return;
@@ -101,6 +104,7 @@ export default function FriendsScreen() {
     }
   };
 
+  // removes pending request from the database
   const handleDeclineRequest = async (item: Friend) => {
     try {
       await deleteDoc(doc(db, "friendRequests", item.id));
@@ -109,6 +113,7 @@ export default function FriendsScreen() {
     }
   };
 
+  // deletes friend association for both the current user and the friend
   const handleRemoveFriend = async (friendId: string) => {
     try {
       if (!user?.uid) return;
@@ -121,6 +126,7 @@ export default function FriendsScreen() {
     }
   };
 
+  // triggers a new friend request based on email or phone number input
   const handleSendRequest = async () => {
     if (!searchInput.trim() || !user) return;
     try {
@@ -132,6 +138,7 @@ export default function FriendsScreen() {
     }
   };
 
+  // reusable component for rendering each friend or request card
   const renderItem = ({ item, isFriend }: { item: Friend, isFriend: boolean }) => {
     return (
       <View style={{ 
@@ -196,6 +203,7 @@ export default function FriendsScreen() {
     );
   };
 
+  // displays placeholder UI when list is empty
   const EmptyListComponent = ({ message, icon }: { message: string, icon: keyof typeof Ionicons.glyphMap }) => (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 120 }}>
       <Ionicons name={icon} size={40} color="#d1d5db" style={{ marginBottom: 8 }} />

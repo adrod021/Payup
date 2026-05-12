@@ -4,12 +4,15 @@ import { useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
 import type { User as AppUser } from '../types';
 
+// custom hook to manage global authentication state and user profile data
 export function useAuth() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // listens for auth state changes and syncs firestore profile data
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    // added 'as any' to auth to resolve typescript implicit any errors
+    const unsubscribe = onAuthStateChanged(auth as any, async (firebaseUser) => {
       if (firebaseUser) {
         // Fetch custom profile data from firestore
         const userRef = doc(db, "users", firebaseUser.uid);

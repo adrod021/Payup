@@ -12,6 +12,7 @@ const { width } = Dimensions.get("window");
 const WHEEL_SIZE = Math.min(width * 0.85, 420); 
 const RADIUS = WHEEL_SIZE / 2;
 
+// color palette for the wheel slices
 const PALETTE = ['#E63946', '#457B9D', '#1D3557', '#F4A261', '#2A9D8F', '#8338EC', '#3A86FF', '#0077B6', '#606C38', '#283618'];
 
 export default function RouletteSpinScreen() {
@@ -30,6 +31,7 @@ export default function RouletteSpinScreen() {
   const spinValue = useRef(new Animated.Value(0)).current;
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
+  // cleans up listeners and returns user to the main dashboard
   const handleExitSession = useCallback(() => {
     if (unsubscribeRef.current) {
         unsubscribeRef.current();
@@ -43,6 +45,7 @@ export default function RouletteSpinScreen() {
     }, 100);
   }, [router]);
 
+  // svg logic to draw the actual wheel segments
   const makeWheelSlice = (index: number, total: number) => {
     const angle = 360 / total;
     const startAngle = (index * angle) - 90; 
@@ -54,6 +57,7 @@ export default function RouletteSpinScreen() {
     return `M${RADIUS},${RADIUS} L${x1},${y1} A${RADIUS},${RADIUS} 0 0,1 ${x2},${y2} z`;
   };
 
+  // handles the visual rotation and winner reveal
   const triggerAnimation = useCallback((winner: string, stopValue: number, duration: number) => {
     setIsSpinning(true);
     setWinnerName(null);
@@ -72,6 +76,7 @@ export default function RouletteSpinScreen() {
     });
   }, [spinValue]);
 
+  // syncs wheel state with firestore so all participants see the same spin
   useEffect(() => {
     if (!sessionId) return;
     
@@ -94,6 +99,7 @@ export default function RouletteSpinScreen() {
     return () => { if (unsubscribeRef.current) unsubscribeRef.current(); };
   }, [sessionId, handleExitSession, triggerAnimation]);
 
+  // allows host to calculate a winner and push the result to firestore
   const handleHostSpin = async () => {
     if (isSpinning || participants.length < 2) return;
     const winnerIndex = Math.floor(Math.random() * participants.length);
@@ -127,7 +133,6 @@ export default function RouletteSpinScreen() {
         <Text style={{ color: '#6b7280', marginBottom: 30 }}>{participants.length} Friends Joined</Text>
 
         <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-          {/* ADJUSTED: top changed from -35 to -15 to bring the arrow down */}
           <View style={{ position: 'absolute', top: -15, zIndex: 100 }}>
             <Ionicons name="caret-down" size={50} color="#111" />
           </View>
@@ -177,6 +182,7 @@ export default function RouletteSpinScreen() {
         </View>
       </ScrollView>
 
+      {/* modal to display the winner once the wheel stops */}
       <Modal visible={showWinnerModal} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <View style={{ backgroundColor: 'white', width: '100%', borderRadius: 32, padding: 40, alignItems: 'center' }}>

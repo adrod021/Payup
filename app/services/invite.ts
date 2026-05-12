@@ -21,6 +21,7 @@ const ROULETTE_COLORS = [
   '#8338EC', '#3A86FF', '#0077B6', '#606C38', '#283618'
 ];
 
+// handles sending friend requests by checking for existing email or phone numbers
 export async function sendFriendRequest(currentUser: AppUser, targetIdentifier: string) {
   const identifier = targetIdentifier.trim().toLowerCase();
   if (identifier === currentUser.email?.toLowerCase() || identifier === currentUser.phoneNumber) {
@@ -47,6 +48,7 @@ export async function sendFriendRequest(currentUser: AppUser, targetIdentifier: 
   });
 }
 
+// initializes a new bill session and generates invite documents for participants
 export async function createSessionAndInvite(hostUser: AppUser, participantIdentifiers: string[], existingSessionId?: string) {
   let sessionId = existingSessionId;
   
@@ -82,6 +84,7 @@ export async function createSessionAndInvite(hostUser: AppUser, participantIdent
   return sessionId;
 }
 
+// processes a user joining a session and assigns them a roulette wheel color
 export async function joinSession(sessionId: string, userId: string, inviteId: string) {
   if (inviteId) await updateDoc(doc(db, "invites", inviteId), { status: "accepted" });
   
@@ -101,6 +104,7 @@ export async function joinSession(sessionId: string, userId: string, inviteId: s
   });
 }
 
+// cleans up a session by deleting the session doc and all associated invites
 export async function closeSession(sessionId: string) {
   const q = query(collection(db, "invites"), where("sessionId", "==", sessionId));
   const inviteSnaps = await getDocs(q);

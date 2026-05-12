@@ -11,6 +11,7 @@ import { saveReceiptScanToSession } from "../receipt";
 import { createSessionAndInvite, joinSession } from "../services/invite";
 import { performOCR, ScannedItem } from "../services/ocrService";
 
+// handles session entry points, invite tracking, and ocr workflow
 export default function HomeScreen() {
   const [showOptions, setShowOptions] = useState(false); 
   const [showInvite, setShowInvite] = useState(false);   
@@ -30,6 +31,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth(); 
 
+  // navigation handler to revert ui state steps
   const handleBack = useCallback(() => {
     if (showSplitMethods) return setShowSplitMethods(false);
     if (isConnecting) return setIsConnecting(false);
@@ -42,6 +44,7 @@ export default function HomeScreen() {
     setShowOptions(false);
   }, [isConnecting, showInvite, showSplitMethods]);
 
+  // creates session and manages participant invitations
   const handleAddParticipant = async () => {
     if (!inviteInput || !user || isSendingInvite) return;
     const newParticipant = inviteInput.trim();
@@ -63,6 +66,7 @@ export default function HomeScreen() {
     }
   };
 
+  // logic for joining a session and updating local room state
   const handleAcceptInvite = async (invite: any) => {
     try {
       await joinSession(invite.sessionId, user!.uid, invite.id);
@@ -76,6 +80,7 @@ export default function HomeScreen() {
     }
   };
 
+  // manages ocr processing and navigation to split workflows
   const startMode = async (mode: 'itemized' | 'roulette', method?: 'scan' | 'manual') => {
     if (!sessionId) return;
 
@@ -122,6 +127,7 @@ export default function HomeScreen() {
     }
   };
 
+  // listener for session invites directed to the current user
   useEffect(() => {
     if (!user) return;
     const email = user.email?.toLowerCase().trim() || "no-email";
@@ -144,6 +150,7 @@ export default function HomeScreen() {
     return () => unsubInvites();
   }, [user]);
 
+  // monitors session document to handle participant redirection
   useEffect(() => {
     if (!sessionId || !user) return;
     const unsub = onSnapshot(doc(db, "sessions", sessionId), (docSnap) => {

@@ -1,7 +1,4 @@
-/**
- * HELPER FUNCTIONS
- * Strips symbols and extra formatting to turn a currency string into a valid number.
- */
+// helper to strip symbols and format currency strings into numbers
 export function parseCurrency(raw: string): number | null {
   if (raw == null) return null;
   const cleaned = raw.toString().trim()
@@ -14,37 +11,29 @@ export function parseCurrency(raw: string): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-/**
- * Scans a block of text to find and return the first sequence that looks like a price.
- */
+// finds and returns the first price-like sequence in a text block
 export function extractFirstCurrency(text: string): number | null {
   if (!text) return null;
   const match = text.match(/[$€£¥₹]?\s*\d{1,3}(?:,\d{3})*(?:\.\d+)?/);
   return match ? parseCurrency(match[0]) : null;
 }
 
-/**
- * INTERFACE FOR UI
- * This matches what receipt.ts and index.tsx expect.
- */
+// interface to keep scanned data consistent with the ui
 export interface ScannedItem {
   id: string;
   name: string;
   price: number;
 }
 
-/**
- * CORE OCR SCANNING FUNCTION (PROTOTYPE VERSION)
- * Simulates a delay and returns structured data for the UI.
- */
+// mock function to simulate ocr processing delay and test loading states
 export const performOCR = async (imageUri: string): Promise<ScannedItem[]> => {
   try {
-    console.log("Starting Prototype OCR process for:", imageUri);
+    console.log("starting prototype ocr for:", imageUri);
     
-    // Simulate a 2-second processing delay for testing the Loading Spinner
+    // 2-second delay to test the loading spinner
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Prototype data with unique IDs
+    // returns static data until google ml kit is integrated
     return [
       { id: Math.random().toString(36).substring(7), name: "Apples", price: 4.50 },
       { id: Math.random().toString(36).substring(7), name: "Bread", price: 2.00 },
@@ -52,7 +41,7 @@ export const performOCR = async (imageUri: string): Promise<ScannedItem[]> => {
       { id: Math.random().toString(36).substring(7), name: "Eggs", price: 5.00 }
     ];
   } catch (error) {
-    console.error("OCR Error:", error);
-    throw new Error("Could not read receipt");
+    console.error("ocr error:", error);
+    throw new Error("could not read receipt");
   }
 };
